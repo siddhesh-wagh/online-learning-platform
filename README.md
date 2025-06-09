@@ -43,14 +43,14 @@ Building an **Online Learning Platform**, and that means we need to cover **educ
 
 ---
 
-### 5. **Live Classes**
+### 5. **Live Classes** (optional step for now)
 
 * Embed/launch Zoom, Google Meet, or Jitsi links
 * Schedule upcoming live sessions (with reminders)
 
 ---
 
-### 6. **Discussion Forums / Comments**
+### 6. **Discussion Forums / Comments** (optional step for now)
 
 * Per-course discussion board or comment section
 * Users can post questions; instructors can reply
