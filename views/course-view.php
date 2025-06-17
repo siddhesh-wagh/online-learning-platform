@@ -59,3 +59,43 @@ if ($result->num_rows === 1) {
 
 </body>
 </html>
+<hr>
+<h3>Discussion / Comments</h3>
+
+<!-- Comment Form -->
+<form method="POST" action="">
+  <textarea name="comment" rows="4" cols="50" required placeholder="Write your comment here..."></textarea><br>
+  <button type="submit">Post Comment</button>
+</form>
+<br>
+
+<?php
+// Handle comment submission
+if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['comment'])) {
+    $comment = trim($_POST['comment']);
+    $user_id = $_SESSION['user_id'];
+
+    if (!empty($comment)) {
+        $stmt = $conn->prepare("INSERT INTO comments (course_id, user_id, content) VALUES (?, ?, ?)");
+        $stmt->bind_param("iis", $course_id, $user_id, $comment);
+        $stmt->execute();
+    }
+}
+
+// Fetch and display comments
+$stmt = $conn->prepare("SELECT c.content, c.created_at, u.name FROM comments c JOIN users u ON c.user_id = u.id WHERE c.course_id = ? ORDER BY c.created_at DESC");
+$stmt->bind_param("i", $course_id);
+$stmt->execute();
+$comments_result = $stmt->get_result();
+
+if ($comments_result->num_rows > 0):
+    while ($comment = $comments_result->fetch_assoc()):
+?>
+    <div style="border: 1px solid #ccc; margin: 10px 0; padding: 10px;">
+        <strong><?php echo htmlspecialchars($comment['name']); ?></strong>
+        <small>(<?php echo $comment['created_at']; ?>)</small>
+        <p><?php echo nl2br(htmlspecialchars($comment['content'])); ?></p>
+    </div>
+<?php endwhile; else: ?>
+    <p>No comments yet. Be the first to comment!</p>
+<?php endif; ?>
