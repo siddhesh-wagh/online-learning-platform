@@ -31,7 +31,9 @@ function sendEmail($to, $subject, $body) {
         return true;
 
     } catch (Exception $e) {
-        error_log("Mailer Error: " . $mail->ErrorInfo);
-        return false;
-    }
+    error_log("Mailer Error: " . $mail->ErrorInfo);
+    echo "<script>console.error('❌ Mailer Error: " . $mail->ErrorInfo . "');</script>";
+    return false;
+}
+
 }
