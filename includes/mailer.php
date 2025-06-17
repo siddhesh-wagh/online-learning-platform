@@ -23,9 +23,13 @@ function sendEmail($to, $subject, $body) {
 
         // Email content
         $mail->setFrom($_ENV['MAIL_USERNAME'], 'Online Learning Platform');
-        $mail->addAddress($to);
-        $mail->Subject = $subject;
-        $mail->Body    = $body;
+$mail->addAddress($to);
+$mail->isHTML(true); // ✅ Enable HTML email
+$mail->Subject = $subject;
+$mail->Body    = $body;
+$mail->AltBody = strip_tags($body); // For old email clients
+
+
 
         $mail->send();
         return true;

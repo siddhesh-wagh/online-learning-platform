@@ -16,10 +16,11 @@ $course_id = $_GET['id'];
 $user_id = $_SESSION['user_id'];
 
 // Fetch course details
-$stmt = $conn->prepare("SELECT c.title, c.description, c.file_path, u.name AS instructor_name, u.email AS instructor_email
+$stmt = $conn->prepare("SELECT c.title, c.description, c.file_path, c.instructor_id, u.name AS instructor_name, u.email AS instructor_email
                         FROM courses c
                         JOIN users u ON c.instructor_id = u.id
                         WHERE c.id = ?");
+
 $stmt->bind_param("i", $course_id);
 $stmt->execute();
 $result = $stmt->get_result();
@@ -49,7 +50,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['mark_complete'])) {
     }
 }
 
-// Handle comment submission
 if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['comment'])) {
     $comment = trim($_POST['comment']);
     if (!empty($comment)) {
@@ -57,16 +57,36 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['comment'])) {
         $stmt->bind_param("iis", $course_id, $user_id, $comment);
         $stmt->execute();
 
-        // 📨 Email notification (placeholder)
-        /*
+        // 🔔 Add in-app dashboard notification
+        $notif_stmt = $conn->prepare("INSERT INTO notifications (user_id, message) VALUES (?, ?)");
+        $message = $_SESSION['name'] . " commented on your course: " . $course['title'];
+        $notif_stmt->bind_param("is", $course['instructor_id'], $message);
+        $notif_stmt->execute();
+
+        // ✉️ Send HTML email to instructor
+        include_once '../includes/mailer.php';
+
         $to = $course['instructor_email'];
-        $subject = "New Comment on Your Course: " . $course['title'];
-        $message = $_SESSION['name'] . " commented: \n\n" . $comment;
-        $headers = "From: noreply@yourdomain.com";
-        mail($to, $subject, $message, $headers);
-        */
+        $subject = "📝 New Comment on Your Course: " . $course['title'];
+        $body = "
+        <h3>Hello {$course['instructor_name']},</h3>
+        <p><strong>{$_SESSION['name']}</strong> has commented on your course <em>{$course['title']}</em>:</p>
+        <blockquote style='border-left:3px solid #ccc;padding-left:10px;color:#555;'>{$comment}</blockquote>
+        <p><a href='http://localhost/online-learning-platform/views/course-view.php?id={$course_id}'>View Course</a></p>
+        <br><small>This is an automated email from Online Learning Platform.</small>
+        ";
+
+        if (!empty($to)) {
+            $mailStatus = sendEmail($to, $subject, $body);
+            echo "<script>console.log('📬 Email " . ($mailStatus ? "sent ✅" : "failed ❌") . " to $to');</script>";
+        } else {
+            echo "<script>console.warn('⚠️ Instructor email not found');</script>";
+        }
     }
 }
+
+
+
 
 // Pagination for comments
 $comments_per_page = 5;
