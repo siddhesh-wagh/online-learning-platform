@@ -1,8 +1,8 @@
-<?php include '../includes/auth.php'; ?>
-<?php include '../db-config.php'; ?>
-
 <?php
-// Fetch notifications if user is an instructor
+include '../includes/auth.php';
+include '../db-config.php';
+
+// Initialize variables
 $unread_count = 0;
 $notifs = [];
 
@@ -22,7 +22,7 @@ if ($_SESSION['role'] === 'instructor') {
     $unread_result = $unread_stmt->get_result()->fetch_assoc();
     $unread_count = $unread_result['unread'];
 
-    // Handle "mark as read"
+    // Handle mark as read
     if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['mark_read'])) {
         $mark_stmt = $conn->prepare("UPDATE notifications SET is_read = 1 WHERE user_id = ?");
         $mark_stmt->bind_param("i", $uid);
@@ -43,11 +43,18 @@ if ($_SESSION['role'] === 'instructor') {
 
 <div class="container py-4">
     <h2 class="mb-2">Welcome, <?php echo htmlspecialchars($_SESSION['name']); ?>!</h2>
-    <p>Your role: <?php echo htmlspecialchars($_SESSION['role']); ?></p>
+    <p><strong>Your role:</strong> 
+        <span class="badge bg-<?php echo $_SESSION['role'] === 'admin' ? 'danger' : ($_SESSION['role'] === 'instructor' ? 'primary' : 'secondary'); ?>">
+            <?php echo htmlspecialchars($_SESSION['role']); ?>
+        </span>
+    </p>
 
     <nav class="mb-3">
         <a href="../auth/logout.php" class="btn btn-sm btn-danger">Logout</a>
         <a href="user-profile.php" class="btn btn-sm btn-secondary">👤 My Profile</a>
+        <?php if ($_SESSION['role'] === 'admin'): ?>
+            <a href="../admin/manage-users.php" class="btn btn-sm btn-dark">🔐 Manage Users</a>
+        <?php endif; ?>
     </nav>
 
     <?php if ($_SESSION['role'] === 'instructor'): ?>
@@ -79,6 +86,9 @@ if ($_SESSION['role'] === 'instructor') {
 
     <?php elseif ($_SESSION['role'] === 'learner'): ?>
         <a href="course-list.php" class="btn btn-primary">📚 Browse Courses</a>
+
+    <?php elseif ($_SESSION['role'] === 'admin'): ?>
+        <p class="mt-4">Use the <strong>Manage Users</strong> button above to approve instructors and manage accounts.</p>
     <?php endif; ?>
 </div>
 
