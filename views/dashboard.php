@@ -14,6 +14,7 @@
 <nav>
   <a href="../auth/logout.php">Logout</a>
 </nav>
+<p><a href="user-profile.php">👤 View My Profile</a></p>
 
 <!-- Add content based on role -->
 <?php if ($_SESSION['role'] === 'instructor'): ?>
