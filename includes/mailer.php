@@ -2,23 +2,27 @@
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
-require '../vendor/autoload.php';
+require __DIR__ . '/../vendor/autoload.php';
+
+// ✅ Load .env file from the project root
+$dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/../');
+$dotenv->load();
 
 function sendEmail($to, $subject, $body) {
     $mail = new PHPMailer(true);
 
     try {
-        // SMTP Configuration (use your real Gmail or Mailtrap creds)
+        // SMTP configuration
         $mail->isSMTP();
         $mail->Host       = 'smtp.gmail.com';
         $mail->SMTPAuth   = true;
-        $mail->Username   = 'your-email@gmail.com';       // 🔁 your Gmail address
-        $mail->Password   = 'your-app-password';          // 🔁 App password (not Gmail password)
+        $mail->Username   = $_ENV['MAIL_USERNAME'];  // loaded from .env
+        $mail->Password   = $_ENV['MAIL_PASSWORD'];  // loaded from .env
         $mail->SMTPSecure = 'tls';
         $mail->Port       = 587;
 
         // Email content
-        $mail->setFrom('your-email@gmail.com', 'Online Learning Platform');
+        $mail->setFrom($_ENV['MAIL_USERNAME'], 'Online Learning Platform');
         $mail->addAddress($to);
         $mail->Subject = $subject;
         $mail->Body    = $body;
