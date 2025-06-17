@@ -99,3 +99,42 @@ if ($comments_result->num_rows > 0):
 <?php endwhile; else: ?>
     <p>No comments yet. Be the first to comment!</p>
 <?php endif; ?>
+<hr>
+<h3>Course Progress</h3>
+
+<?php
+// Check progress
+$user_id = $_SESSION['user_id'];
+$progress_stmt = $conn->prepare("SELECT status FROM course_progress WHERE user_id = ? AND course_id = ?");
+$progress_stmt->bind_param("ii", $user_id, $course_id);
+$progress_stmt->execute();
+$progress_result = $progress_stmt->get_result();
+$progress = $progress_result->fetch_assoc();
+$current_status = $progress['status'] ?? 'in_progress';
+
+// Handle status update
+if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['mark_complete'])) {
+    if ($current_status !== 'completed') {
+        // Insert or update progress
+        $update_stmt = $conn->prepare("
+            INSERT INTO course_progress (user_id, course_id, status)
+            VALUES (?, ?, 'completed')
+            ON DUPLICATE KEY UPDATE status = 'completed'
+        ");
+        $update_stmt->bind_param("ii", $user_id, $course_id);
+        $update_stmt->execute();
+        $current_status = 'completed';
+    }
+}
+
+?>
+
+<p>Status: <strong><?php echo ucfirst($current_status); ?></strong></p>
+
+<?php if ($current_status !== 'completed'): ?>
+    <form method="POST">
+        <button type="submit" name="mark_complete">Mark as Completed</button>
+    </form>
+<?php else: ?>
+    <p>✅ You have completed this course!</p>
+<?php endif; ?>

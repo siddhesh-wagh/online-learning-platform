@@ -31,7 +31,21 @@ $result = $conn->query($sql);
             <h3><?php echo htmlspecialchars($row['title']); ?></h3>
             <p><?php echo nl2br(htmlspecialchars($row['description'])); ?></p>
             <small>Instructor: <?php echo htmlspecialchars($row['instructor_name']); ?></small><br><br>
-            <a href="course-view.php?id=<?php echo $row['id']; ?>">View Course</a>
+            <?php
+// Check if course is completed
+$user_id = $_SESSION['user_id'];
+$cid = $row['id'];
+$status_stmt = $conn->prepare("SELECT status FROM course_progress WHERE user_id = ? AND course_id = ?");
+$status_stmt->bind_param("ii", $user_id, $cid);
+$status_stmt->execute();
+$status_result = $status_stmt->get_result();
+$status_data = $status_result->fetch_assoc();
+$status = $status_data['status'] ?? 'in_progress';
+?>
+
+<p>Status: <strong><?php echo ucfirst($status); ?></strong></p>
+<a href="course-view.php?id=<?php echo $cid; ?>">View Course</a>
+
         </div>
     <?php endwhile; ?>
 <?php else: ?>
