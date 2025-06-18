@@ -2,11 +2,12 @@
 include '../includes/auth.php';
 include '../db-config.php';
 
-// Initialize variables
+$role = $_SESSION['role'];
+$name = $_SESSION['name'];
 $unread_count = 0;
 $notifs = [];
 
-if ($_SESSION['role'] === 'instructor') {
+if ($role === 'instructor') {
     $uid = $_SESSION['user_id'];
 
     // Fetch notifications
@@ -22,7 +23,7 @@ if ($_SESSION['role'] === 'instructor') {
     $unread_result = $unread_stmt->get_result()->fetch_assoc();
     $unread_count = $unread_result['unread'];
 
-    // Handle mark as read
+    // Mark all as read
     if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['mark_read'])) {
         $mark_stmt = $conn->prepare("UPDATE notifications SET is_read = 1 WHERE user_id = ?");
         $mark_stmt->bind_param("i", $uid);
@@ -37,42 +38,58 @@ if ($_SESSION['role'] === 'instructor') {
 <html>
 <head>
     <title>Dashboard</title>
+    <meta charset="UTF-8" />
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <?php if ($role === 'instructor'): ?>
+    <script>
+      function refreshNotifCount() {
+        fetch("../includes/get-notif-count.php")
+          .then(res => res.text())
+          .then(count => {
+            const badge = document.getElementById("notif-count");
+            badge.innerText = count;
+            badge.classList.remove("bg-danger", "bg-secondary");
+            badge.classList.add(count > 0 ? "bg-danger" : "bg-secondary");
+          });
+      }
+      window.onload = refreshNotifCount;
+      setInterval(refreshNotifCount, 5000);
+    </script>
+    <?php endif; ?>
 </head>
-<body class="bg-light">
 
+<body class="bg-light">
 <div class="container py-4">
-    <h2 class="mb-2">Welcome, <?php echo htmlspecialchars($_SESSION['name']); ?>!</h2>
-    <p><strong>Your role:</strong> 
-        <span class="badge bg-<?php echo $_SESSION['role'] === 'admin' ? 'danger' : ($_SESSION['role'] === 'instructor' ? 'primary' : 'secondary'); ?>">
-            <?php echo htmlspecialchars($_SESSION['role']); ?>
+
+    <h2>Welcome, <?= htmlspecialchars($name); ?>!</h2>
+    <p><strong>Your role:</strong>
+        <span class="badge bg-<?= $role === 'admin' ? 'danger' : ($role === 'instructor' ? 'primary' : 'secondary'); ?>">
+            <?= htmlspecialchars($role); ?>
         </span>
     </p>
 
-    <nav class="mb-3">
+    <nav class="mb-4">
         <a href="../auth/logout.php" class="btn btn-sm btn-danger">Logout</a>
         <a href="user-profile.php" class="btn btn-sm btn-secondary">👤 My Profile</a>
-        <?php if ($_SESSION['role'] === 'admin'): ?>
+        <?php if ($role === 'admin'): ?>
             <a href="../admin/manage-users.php" class="btn btn-sm btn-dark">🔐 Manage Users</a>
         <?php endif; ?>
     </nav>
 
-    <?php if ($_SESSION['role'] === 'instructor'): ?>
+    <?php if ($role === 'instructor'): ?>
         <a href="add-course.php" class="btn btn-primary mb-3">➕ Add New Course</a>
 
         <div class="card">
             <div class="card-header d-flex justify-content-between">
                 <span>🔔 Notifications</span>
-                <span class="badge bg-<?php echo $unread_count > 0 ? 'danger' : 'secondary'; ?>">
-                    <?php echo $unread_count; ?> Unread
-                </span>
+                <span id="notif-count" class="badge bg-secondary"><?= $unread_count ?></span>
             </div>
             <ul class="list-group list-group-flush">
                 <?php if ($notifs && $notifs->num_rows > 0): ?>
                     <?php while ($n = $notifs->fetch_assoc()): ?>
-                        <li class="list-group-item <?php echo $n['is_read'] ? '' : 'fw-bold'; ?>">
-                            <?php echo htmlspecialchars($n['message']); ?>
-                            <small class="text-muted float-end"><?php echo $n['created_at']; ?></small>
+                        <li class="list-group-item <?= $n['is_read'] ? '' : 'fw-bold'; ?>">
+                            <?= htmlspecialchars($n['message']); ?>
+                            <small class="text-muted float-end"><?= $n['created_at']; ?></small>
                         </li>
                     <?php endwhile; ?>
                 <?php else: ?>
@@ -84,13 +101,28 @@ if ($_SESSION['role'] === 'instructor') {
             </form>
         </div>
 
-    <?php elseif ($_SESSION['role'] === 'learner'): ?>
+    <?php elseif ($role === 'learner'): ?>
         <a href="course-list.php" class="btn btn-primary">📚 Browse Courses</a>
 
-    <?php elseif ($_SESSION['role'] === 'admin'): ?>
-        <p class="mt-4">Use the <strong>Manage Users</strong> button above to approve instructors and manage accounts.</p>
+    <?php elseif ($role === 'admin'): ?>
+        <?php
+        $user_count = $conn->query("SELECT COUNT(*) AS total FROM users")->fetch_assoc()['total'];
+        $course_count = $conn->query("SELECT COUNT(*) AS total FROM courses")->fetch_assoc()['total'];
+        $instructor_count = $conn->query("SELECT COUNT(*) AS total FROM users WHERE role = 'instructor'")->fetch_assoc()['total'];
+        $pending_count = $conn->query("SELECT COUNT(*) AS total FROM users WHERE role = 'instructor' AND is_approved = 0")->fetch_assoc()['total'];
+        ?>
+        <div class="row mt-3">
+            <div class="col-md-3"><div class="card border-primary"><div class="card-body">
+                <h5>Total Users</h5><p class="fs-4"><?= $user_count ?></p></div></div></div>
+            <div class="col-md-3"><div class="card border-success"><div class="card-body">
+                <h5>Total Courses</h5><p class="fs-4"><?= $course_count ?></p></div></div></div>
+            <div class="col-md-3"><div class="card border-info"><div class="card-body">
+                <h5>Instructors</h5><p class="fs-4"><?= $instructor_count ?></p></div></div></div>
+            <div class="col-md-3"><div class="card border-danger"><div class="card-body">
+                <h5>Pending Approvals</h5><p class="fs-4 text-danger"><?= $pending_count ?></p></div></div></div>
+        </div>
     <?php endif; ?>
-</div>
 
+</div>
 </body>
 </html>

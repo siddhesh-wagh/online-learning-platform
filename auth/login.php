@@ -7,7 +7,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $password = $_POST['password'];
 
     // Fetch user from DB
-    $stmt = $conn->prepare("SELECT id, name, email, password, role, is_approved FROM users WHERE email = ?");
+    $stmt = $conn->prepare("SELECT id, name, email, password, role, is_approved, is_verified FROM users WHERE email = ?");
     $stmt->bind_param("s", $email);
     $stmt->execute();
 
@@ -15,22 +15,30 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if ($result->num_rows === 1) {
         $user = $result->fetch_assoc();
 
-        // Verify password
+        // ✅ Verify password
         if (password_verify($password, $user['password'])) {
-            // 🔒 Check if instructor is approved
-            if ($user['role'] === 'instructor' && !$user['is_approved']) {
+
+            // ✅ Block if email not verified
+            if (!$user['is_verified']) {
+                $error = "❌ Please verify your email before logging in.";
+            }
+
+            // ✅ Block unapproved instructor
+            elseif ($user['role'] === 'instructor' && !$user['is_approved']) {
                 $error = "❌ Your instructor account is pending admin approval.";
-            } else {
-                // Store session data
+            }
+
+            // ✅ Login success
+            else {
                 $_SESSION['user_id'] = $user['id'];
                 $_SESSION['name']    = $user['name'];
                 $_SESSION['email']   = $user['email'];
                 $_SESSION['role']    = $user['role'];
 
-                // Redirect to dashboard
                 header("Location: ../views/dashboard.php");
                 exit;
             }
+
         } else {
             $error = "❌ Invalid password.";
         }

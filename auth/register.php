@@ -1,5 +1,6 @@
 <?php
-include '../db-config.php'; // connect to DB
+include '../db-config.php'; // DB connection
+include_once '../includes/mailer.php';
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $name     = trim($_POST['name']);
@@ -7,7 +8,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
     $role     = $_POST['role'];
 
-    // Prevent duplicate emails
+    // Prevent duplicate email
     $check = $conn->prepare("SELECT id FROM users WHERE email = ?");
     $check->bind_param("s", $email);
     $check->execute();
@@ -16,27 +17,30 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if ($check->num_rows > 0) {
         echo "❌ Email already exists.";
     } else {
-        $stmt = $conn->prepare("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)");
-        $stmt->bind_param("ssss", $name, $email, $password, $role);
+        $token = bin2hex(random_bytes(16)); // secure token
+
+        $stmt = $conn->prepare("INSERT INTO users (name, email, password, role, is_verified, verify_token)
+                                VALUES (?, ?, ?, ?, 0, ?)");
+        $stmt->bind_param("sssss", $name, $email, $password, $role, $token);
 
         if ($stmt->execute()) {
-            // ✅ Send Welcome Email
-            include_once '../includes/mailer.php';
-
-            $subject = "🎉 Welcome to Online Learning Platform!";
+            // ✅ Send verification email
+            $verify_link = "http://localhost/online-learning-platform/auth/verify.php?token=$token";
+            $subject = "🔐 Verify Your Email - Online Learning Platform";
             $body = "
                 <h2>Hi {$name},</h2>
-                <p>Thanks for signing up as a <strong>{$role}</strong>!</p>
-                <p>You can now <a href='http://localhost/online-learning-platform/auth/login.php'>log in</a> and begin your journey.</p>
-                <hr>
-                <small>This is an automated email from Online Learning Platform.</small>
+                <p>Thanks for signing up as a <strong>{$role}</strong>.</p>
+                <p>Please verify your email to activate your account:</p>
+                <a href='{$verify_link}'>Click here to verify</a>
+                <br><br>
+                <small>This link is valid once. If you did not sign up, ignore this email.</small>
             ";
 
             sendEmail($email, $subject, $body);
 
-            echo "✅ Registered successfully. <a href='login.php'>Login</a>";
+            echo "✅ Registered! Please check your email to verify your account.";
         } else {
-            echo "❌ Error: " . $stmt->error;
+            echo "❌ Registration failed: " . $stmt->error;
         }
     }
 }
@@ -44,7 +48,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
 <!-- Registration Form -->
 <h2>Register</h2>
-<form method="POST" action="">
+<form method="POST">
   <label>Name:</label><br>
   <input type="text" name="name" required><br><br>
 
