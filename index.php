@@ -27,9 +27,10 @@ if (isset($_SESSION['role'])) {
       <ul class="navbar-nav ms-auto">
         <li class="nav-item"><a class="nav-link active" href="#">Home</a></li>
         <li class="nav-item"><a class="nav-link" href="views/course-list.php">Courses</a></li>
-        <li class="nav-item"><a class="nav-link" href="#">Instructors</a></li>
+        <li class="nav-item"><a class="nav-link" href="views/about.php">About</a></li>
         <li class="nav-item"><a class="nav-link" href="auth/register.php">Register</a></li>
         <li class="nav-item"><a class="nav-link" href="auth/login.php">Login</a></li>
+        <li class="nav-item"><a class="nav-link" href="views/contact.php">Contact</a></li>
       </ul>
     </div>
   </div>

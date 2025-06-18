@@ -7,50 +7,118 @@ if ($_SESSION['role'] !== 'learner') {
     exit;
 }
 
-$sql = "SELECT c.id, c.title, c.description, u.name AS instructor_name 
-        FROM courses c
-        JOIN users u ON c.instructor_id = u.id
-        ORDER BY c.created_at DESC";
+$user_id = $_SESSION['user_id'];
+$search = $_GET['search'] ?? '';
+$page = max(1, (int)($_GET['page'] ?? 1));
+$limit = 5;
+$offset = ($page - 1) * $limit;
 
-$result = $conn->query($sql);
+// Prepare search query
+$search_sql = "%$search%";
+
+// Count total
+$count_stmt = $conn->prepare("
+    SELECT COUNT(*) AS total 
+    FROM courses c 
+    JOIN users u ON c.instructor_id = u.id 
+    WHERE c.title LIKE ? OR u.name LIKE ?
+");
+$count_stmt->bind_param("ss", $search_sql, $search_sql);
+$count_stmt->execute();
+$total = $count_stmt->get_result()->fetch_assoc()['total'];
+$total_pages = ceil($total / $limit);
+
+// Fetch paginated results
+$stmt = $conn->prepare("
+    SELECT c.id, c.title, c.description, u.name AS instructor_name 
+    FROM courses c
+    JOIN users u ON c.instructor_id = u.id 
+    WHERE c.title LIKE ? OR u.name LIKE ? 
+    ORDER BY c.created_at DESC 
+    LIMIT ? OFFSET ?
+");
+$stmt->bind_param("ssii", $search_sql, $search_sql, $limit, $offset);
+$stmt->execute();
+$result = $stmt->get_result();
 ?>
 
 <!DOCTYPE html>
 <html>
 <head>
   <title>Available Courses</title>
+  <meta charset="UTF-8">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
-<body>
+<body class="bg-light">
+<div class="container py-4">
+  <h2 class="mb-4">📚 Available Courses</h2>
+  <a href="dashboard.php" class="btn btn-secondary mb-3">← Back to Dashboard</a>
 
-<h2>Available Courses</h2>
-<p><a href="dashboard.php">← Back to Dashboard</a></p>
+  <!-- 🔍 Search Form -->
+  <form method="GET" class="mb-4">
+    <div class="input-group">
+      <input type="text" name="search" class="form-control" placeholder="Search by title or instructor..." value="<?= htmlspecialchars($search) ?>">
+      <button class="btn btn-primary">Search</button>
+    </div>
+  </form>
 
-<?php if ($result->num_rows > 0): ?>
-    <?php while ($row = $result->fetch_assoc()): ?>
-        <div style="border:1px solid #ccc; padding:10px; margin-bottom:10px;">
-            <h3><?php echo htmlspecialchars($row['title']); ?></h3>
-            <p><?php echo nl2br(htmlspecialchars($row['description'])); ?></p>
-            <small>Instructor: <?php echo htmlspecialchars($row['instructor_name']); ?></small><br><br>
-            <?php
-// Check if course is completed
-$user_id = $_SESSION['user_id'];
-$cid = $row['id'];
-$status_stmt = $conn->prepare("SELECT status FROM course_progress WHERE user_id = ? AND course_id = ?");
-$status_stmt->bind_param("ii", $user_id, $cid);
-$status_stmt->execute();
-$status_result = $status_stmt->get_result();
-$status_data = $status_result->fetch_assoc();
-$status = $status_data['status'] ?? 'in_progress';
-?>
+  <?php if ($result->num_rows > 0): ?>
+    <div class="row">
+      <?php while ($row = $result->fetch_assoc()): ?>
+        <?php
+        $cid = $row['id'];
+        $status_stmt = $conn->prepare("SELECT status FROM course_progress WHERE user_id = ? AND course_id = ?");
+        $status_stmt->bind_param("ii", $user_id, $cid);
+        $status_stmt->execute();
+        $status_result = $status_stmt->get_result();
+        $status_data = $status_result->fetch_assoc();
+        $status = $status_data['status'] ?? 'in_progress';
+        $progress = ($status === 'completed') ? 100 : 50;
+        ?>
+        <div class="col-md-6 mb-4">
+          <div class="card h-100 shadow-sm">
+            <img src="../assets/images/placeholder-course.png" class="card-img-top" alt="Course Thumbnail">
+            <div class="card-body">
+              <h5 class="card-title"><?= htmlspecialchars($row['title']) ?></h5>
+              <h6 class="card-subtitle mb-2 text-muted">Instructor: <?= htmlspecialchars($row['instructor_name']) ?></h6>
+              <p class="card-text"><?= nl2br(htmlspecialchars($row['description'])) ?></p>
+              
+              <!-- 📊 Progress -->
+              <div class="progress mb-2" style="height: 20px;">
+                <div class="progress-bar bg-<?= $progress === 100 ? 'success' : 'info' ?>" 
+                     role="progressbar" 
+                     style="width: <?= $progress ?>%;" 
+                     aria-valuenow="<?= $progress ?>" 
+                     aria-valuemin="0" 
+                     aria-valuemax="100">
+                  <?= $progress ?>%
+                </div>
+              </div>
 
-<p>Status: <strong><?php echo ucfirst($status); ?></strong></p>
-<a href="course-view.php?id=<?php echo $cid; ?>">View Course</a>
-
+              <a href="course-view.php?id=<?= $cid ?>" class="btn btn-primary">View Course</a>
+            </div>
+          </div>
         </div>
-    <?php endwhile; ?>
-<?php else: ?>
-    <p>No courses available.</p>
-<?php endif; ?>
+      <?php endwhile; ?>
+    </div>
 
+    <!-- 🔗 Pagination -->
+    <nav class="mt-4">
+      <ul class="pagination">
+        <?php if ($page > 1): ?>
+          <li class="page-item"><a class="page-link" href="?search=<?= urlencode($search) ?>&page=<?= $page - 1 ?>">« Prev</a></li>
+        <?php endif; ?>
+        <li class="page-item disabled"><span class="page-link">Page <?= $page ?> of <?= $total_pages ?></span></li>
+        <?php if ($page < $total_pages): ?>
+          <li class="page-item"><a class="page-link" href="?search=<?= urlencode($search) ?>&page=<?= $page + 1 ?>">Next »</a></li>
+        <?php endif; ?>
+      </ul>
+    </nav>
+
+  <?php else: ?>
+    <p class="alert alert-info">No courses found.</p>
+  <?php endif; ?>
+
+</div>
 </body>
 </html>
