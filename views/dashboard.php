@@ -103,6 +103,13 @@ $course_count = $conn->query("SELECT COUNT(*) AS total FROM courses WHERE instru
 $upload_pdf = $conn->query("SELECT COUNT(*) AS total FROM courses WHERE instructor_id = $instructor_id AND file_path LIKE '%.pdf'")->fetch_assoc()['total'];
 $upload_mp4 = $conn->query("SELECT COUNT(*) AS total FROM courses WHERE instructor_id = $instructor_id AND file_path LIKE '%.mp4'")->fetch_assoc()['total'];
 
+$total_enrolled = $conn->query("
+  SELECT COUNT(DISTINCT cp.user_id) AS total 
+  FROM course_progress cp 
+  JOIN courses c ON cp.course_id = c.id 
+  WHERE c.instructor_id = $instructor_id
+")->fetch_assoc()['total'];
+
 // Courses for dropdown
 $courses = $conn->query("SELECT id, title FROM courses WHERE instructor_id = $instructor_id ORDER BY created_at DESC");
 
@@ -132,6 +139,15 @@ if ($selected_course_id && is_numeric($selected_course_id)) {
         <h6>PDFs Uploaded</h6><p class="fs-4"><?= $upload_pdf ?></p></div></div></div>
     <div class="col-md-3"><div class="card border-warning"><div class="card-body text-center">
         <h6>Videos Uploaded</h6><p class="fs-4"><?= $upload_mp4 ?></p></div></div></div>
+        <div class="col-md-3">
+  <div class="card border-success">
+    <div class="card-body text-center">
+      <h6>Students Enrolled</h6>
+      <p class="fs-4"><?= $total_enrolled ?></p>
+    </div>
+  </div>
+</div>
+
 </div>
 
 <!-- 🔔 Notifications -->
@@ -160,76 +176,172 @@ if ($selected_course_id && is_numeric($selected_course_id)) {
 </div>
 
 <!-- 💬 Course Comments Viewer -->
-<div class="card mb-5">
-    <div class="card-header bg-primary text-white">💬 View & Reply to Comments</div>
-    <div class="card-body">
+<div class="row mb-5">
+  <!-- 💬 Comments Section -->
+  <div class="col-md-7">
+    <div class="card h-100">
+      <div class="card-header bg-primary text-white">💬 View & Reply to Comments</div>
+      <div class="card-body">
         <form method="GET" class="mb-3">
-            <label for="course_id">Select Course:</label>
-            <div class="input-group">
-                <select name="course_id" id="course_id" class="form-select" onchange="this.form.submit()">
-                    <option value="">-- Choose a Course --</option>
-                    <?php while ($course = $courses->fetch_assoc()): ?>
-                        <option value="<?= $course['id'] ?>" <?= $selected_course_id == $course['id'] ? 'selected' : '' ?>>
-                            <?= htmlspecialchars($course['title']) ?>
-                        </option>
-                    <?php endwhile; ?>
-                </select>
-                <?php if ($selected_course_id): ?>
-                    <a href="dashboard.php" class="btn btn-outline-secondary">Clear</a>
-                <?php endif; ?>
-            </div>
+          <label for="course_id">Select Course:</label>
+          <div class="input-group">
+            <select name="course_id" id="course_id" class="form-select" onchange="this.form.submit()">
+              <option value="">-- Choose a Course --</option>
+              <?php mysqli_data_seek($courses, 0); while ($course = $courses->fetch_assoc()): ?>
+                <option value="<?= $course['id'] ?>" <?= $selected_course_id == $course['id'] ? 'selected' : '' ?>>
+                  <?= htmlspecialchars($course['title']) ?>
+                </option>
+              <?php endwhile; ?>
+            </select>
+            <?php if ($selected_course_id): ?>
+              <a href="dashboard.php" class="btn btn-outline-secondary">Clear</a>
+            <?php endif; ?>
+          </div>
         </form>
 
         <?php if ($selected_course_id): ?>
-            <?php if ($comments_result && $comments_result->num_rows > 0): ?>
-                <ul class="list-group">
-                    <?php while ($com = $comments_result->fetch_assoc()): ?>
-                        <li class="list-group-item">
-                            <strong><?= htmlspecialchars($com['name']) ?></strong><br>
-                            <?= htmlspecialchars($com['content']) ?><br>
-                            <small class="text-muted float-end"><?= $com['created_at'] ?></small>
+          <?php if ($comments_result && $comments_result->num_rows > 0): ?>
+            <ul class="list-group">
+              <?php while ($com = $comments_result->fetch_assoc()): ?>
+                <li class="list-group-item">
+                  <strong><?= htmlspecialchars($com['name']) ?></strong><br>
+                  <?= htmlspecialchars($com['content']) ?>
+                  <small class="text-muted float-end"><?= $com['created_at'] ?></small>
+                  <br>
 
-                            <?php
-                            // Fetch reply if exists
-                            $comment_id = $com['id'];
-                            $reply_stmt = $conn->prepare("SELECT reply, created_at FROM replies WHERE comment_id = ?");
-                            $reply_stmt->bind_param("i", $comment_id);
-                            $reply_stmt->execute();
-                            $reply = $reply_stmt->get_result()->fetch_assoc();
-                            ?>
+                  <?php
+                  $comment_id = $com['id'];
+                  $reply_stmt = $conn->prepare("SELECT reply, created_at FROM replies WHERE comment_id = ?");
+                  $reply_stmt->bind_param("i", $comment_id);
+                  $reply_stmt->execute();
+                  $reply = $reply_stmt->get_result()->fetch_assoc();
+                  ?>
 
-                            <?php if ($reply): ?>
-                                <div class="mt-2 p-2 bg-light border rounded">
-                                    <strong>You replied:</strong><br>
-                                    <?= htmlspecialchars($reply['reply']) ?>
-                                    <small class="text-muted float-end"><?= $reply['created_at'] ?></small>
-                                </div>
-                            <?php else: ?>
-                                <!-- Reply Form -->
-                                <form method="POST" class="mt-2">
-                                    <input type="hidden" name="comment_id" value="<?= $comment_id ?>">
-                                    <input type="hidden" name="course_id" value="<?= $selected_course_id ?>">
-                                    <textarea name="reply" class="form-control form-control-sm mb-2" rows="2" placeholder="Write a reply..."></textarea>
-                                    <button type="submit" name="submit_reply" class="btn btn-sm btn-primary">Reply</button>
-                                </form>
-                            <?php endif; ?>
-                        </li>
-                    <?php endwhile; ?>
-                </ul>
-            <?php else: ?>
-                <p class="text-muted">No comments yet for this course.</p>
-            <?php endif; ?>
+                  <?php if ($reply): ?>
+                    <div class="mt-2 p-2 bg-light border rounded small">
+                      <strong>You replied:</strong><br>
+                      <?= htmlspecialchars($reply['reply']) ?>
+                      <small class="text-muted float-end"><?= $reply['created_at'] ?></small>
+                    </div>
+                  <?php else: ?>
+                    <form method="POST" class="mt-2">
+                      <input type="hidden" name="comment_id" value="<?= $comment_id ?>">
+                      <input type="hidden" name="course_id" value="<?= $selected_course_id ?>">
+                      <textarea name="reply" class="form-control form-control-sm mb-2" rows="2" placeholder="Write a reply..."></textarea>
+                      <button type="submit" name="submit_reply" class="btn btn-sm btn-primary">Reply</button>
+                    </form>
+                  <?php endif; ?>
+                </li>
+              <?php endwhile; ?>
+            </ul>
+          <?php else: ?>
+            <p class="text-muted">No comments yet for this course.</p>
+          <?php endif; ?>
         <?php else: ?>
-            <p class="text-muted">Select a course above to view its comments.</p>
+          <p class="text-muted">Select a course above to view comments.</p>
         <?php endif; ?>
+      </div>
     </div>
+  </div>
+
+  <!-- 👥 Enrolled Students Section -->
+  <div class="col-md-5">
+    <div class="card h-100">
+      <div class="card-header bg-dark text-white">👥 Enrolled Students</div>
+      <div class="card-body">
+        <?php if ($selected_course_id): ?>
+          <?php
+          $enroll_stmt = $conn->prepare("SELECT u.name, u.email FROM course_progress cp JOIN users u ON cp.user_id = u.id WHERE cp.course_id = ?");
+          $enroll_stmt->bind_param("i", $selected_course_id);
+          $enroll_stmt->execute();
+          $students_result = $enroll_stmt->get_result();
+          $student_count = $students_result->num_rows;
+          ?>
+          <p><strong>Total Enrolled:</strong> <?= $student_count ?></p>
+
+          <?php if ($student_count > 0): ?>
+            <ul class="list-group small">
+              <?php while ($stu = $students_result->fetch_assoc()): ?>
+                <li class="list-group-item"><?= htmlspecialchars($stu['name']) ?> <small class="text-muted float-end"><?= htmlspecialchars($stu['email']) ?></small></li>
+              <?php endwhile; ?>
+            </ul>
+          <?php else: ?>
+            <p class="text-muted">No students enrolled yet.</p>
+          <?php endif; ?>
+        <?php else: ?>
+          <p class="text-muted">Select a course to view enrolled students.</p>
+        <?php endif; ?>
+      </div>
+    </div>
+  </div>
 </div>
 
 
+
+<!-- learner -->
 <?php elseif ($role === 'learner'): ?>
 
-        <a href="course-list.php" class="btn btn-primary">📚 Browse Courses</a>
+<?php
+$learner_id = $_SESSION['user_id'];
+$filter = $_GET['filter'] ?? 'all';
 
+// Fetch course progress including last activity
+$all_courses = $conn->query("
+    SELECT cp.course_id, c.title, cp.status, c.created_at, cp.updated_at 
+    FROM course_progress cp 
+    JOIN courses c ON cp.course_id = c.id 
+    WHERE cp.user_id = $learner_id 
+    ORDER BY cp.updated_at DESC
+");
+
+$filtered_courses = array_filter(iterator_to_array($all_courses), function ($row) use ($filter) {
+    return $filter === 'all' || $row['status'] === $filter;
+});
+
+function timeAgo($datetime) {
+    $time = strtotime($datetime);
+    $diff = time() - $time;
+    if ($diff < 60) return "$diff seconds ago";
+    if ($diff < 3600) return floor($diff / 60) . " minutes ago";
+    if ($diff < 86400) return floor($diff / 3600) . " hours ago";
+    return floor($diff / 86400) . " days ago";
+}
+?>
+
+<div class="mb-4">
+  <h3 class="mb-3">👋 Welcome, <?= htmlspecialchars($name) ?>!</h3>
+
+  <div class="btn-group mb-3" role="group">
+    <a href="?filter=all" class="btn btn-outline-primary <?= $filter === 'all' ? 'active' : '' ?>">📘 All Enrolled</a>
+    <a href="?filter=in_progress" class="btn btn-outline-warning <?= $filter === 'in_progress' ? 'active' : '' ?>">⏳ In Progress</a>
+    <a href="?filter=completed" class="btn btn-outline-success <?= $filter === 'completed' ? 'active' : '' ?>">✅ Completed</a>
+  </div>
+
+  <?php if (count($filtered_courses) > 0): ?>
+    <div class="list-group shadow-sm">
+      <?php foreach ($filtered_courses as $course): ?>
+        <div class="list-group-item d-flex justify-content-between align-items-center flex-wrap">
+          <div class="me-auto">
+            <strong><?= htmlspecialchars($course['title']) ?></strong><br>
+            <small class="text-muted">Enrolled on <?= date('M d, Y', strtotime($course['created_at'])) ?> · Last accessed <?= timeAgo($course['updated_at']) ?></small>
+          </div>
+          <div class="d-flex align-items-center gap-2 mt-2 mt-md-0">
+            <span class="badge bg-<?= $course['status'] === 'completed' ? 'success' : 'warning' ?>">
+              <?= ucfirst(str_replace('_', ' ', $course['status'])) ?>
+            </span>
+            <a href="course-view.php?id=<?= $course['course_id'] ?>" class="btn btn-sm btn-outline-primary">▶️ View</a>
+          </div>
+        </div>
+      <?php endforeach; ?>
+    </div>
+  <?php else: ?>
+    <div class="alert alert-info mt-3">No courses found for this filter.</div>
+  <?php endif; ?>
+
+  <div class="mt-4 text-end">
+    <a href="course-list.php" class="btn btn-secondary">📚 Browse More Courses</a>
+  </div>
+</div>
 
 
 <!-- admin role -->
