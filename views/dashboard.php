@@ -32,6 +32,22 @@ if ($role === 'instructor') {
         exit;
     }
 }
+// Handle instructor replies to comments
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_reply'])) {
+    $comment_id = (int) $_POST['comment_id'];
+    $course_id = (int) $_POST['course_id'];
+    $reply = trim($_POST['reply']);
+
+    if ($reply !== '') {
+        $stmt = $conn->prepare("INSERT INTO replies (comment_id, instructor_id, reply) VALUES (?, ?, ?)");
+        $stmt->bind_param("iis", $comment_id, $uid, $reply);
+        $stmt->execute();
+    }
+
+    header("Location: dashboard.php?course_id=$course_id");
+    exit;
+}
+
 ?>
 
 <!DOCTYPE html>
@@ -76,7 +92,7 @@ if ($role === 'instructor') {
         <?php endif; ?>
     </nav>
 
-    <?php if ($role === 'instructor'): ?>
+<?php if ($role === 'instructor'): ?>
 <a href="add-course.php" class="btn btn-primary mb-3">➕ Add New Course</a>
 
 <?php
@@ -87,14 +103,25 @@ $course_count = $conn->query("SELECT COUNT(*) AS total FROM courses WHERE instru
 $upload_pdf = $conn->query("SELECT COUNT(*) AS total FROM courses WHERE instructor_id = $instructor_id AND file_path LIKE '%.pdf'")->fetch_assoc()['total'];
 $upload_mp4 = $conn->query("SELECT COUNT(*) AS total FROM courses WHERE instructor_id = $instructor_id AND file_path LIKE '%.mp4'")->fetch_assoc()['total'];
 
-// Completion chart data
-$completion_data = $conn->query("
-    SELECT c.title, COUNT(cp.id) AS completed 
-    FROM courses c 
-    LEFT JOIN course_progress cp ON cp.course_id = c.id AND cp.status = 'completed'
-    WHERE c.instructor_id = $instructor_id 
-    GROUP BY c.id
+// Courses for dropdown
+$courses = $conn->query("SELECT id, title FROM courses WHERE instructor_id = $instructor_id ORDER BY created_at DESC");
+
+// Comments for selected course
+$selected_course_id = $_GET['course_id'] ?? '';
+$comments_result = null;
+if ($selected_course_id && is_numeric($selected_course_id)) {
+    $stmt = $conn->prepare("
+    SELECT com.id, com.content, com.created_at, u.name 
+    FROM comments com
+    JOIN users u ON com.user_id = u.id 
+    WHERE com.course_id = ? 
+    ORDER BY com.created_at DESC
 ");
+
+    $stmt->bind_param("i", $selected_course_id);
+    $stmt->execute();
+    $comments_result = $stmt->get_result();
+}
 ?>
 
 <!-- 📊 Quick Stats -->
@@ -132,67 +159,72 @@ $completion_data = $conn->query("
     </form>
 </div>
 
-<!-- 💬 Recent Comments -->
-<?php
-$recent_comments = $conn->prepare("
-    SELECT com.content, com.created_at, u.name, c.title 
-    FROM comments com
-    JOIN courses c ON com.course_id = c.id 
-    JOIN users u ON com.user_id = u.id 
-    WHERE c.instructor_id = ?
-    ORDER BY com.created_at DESC LIMIT 5
-");
-$recent_comments->bind_param("i", $instructor_id);
-$recent_comments->execute();
-$comments_result = $recent_comments->get_result();
-?>
-
-<div class="card mb-4">
-    <div class="card-header bg-primary text-white">💬 Recent Comments on Your Courses</div>
-    <ul class="list-group list-group-flush">
-        <?php if ($comments_result->num_rows > 0): ?>
-            <?php while ($c = $comments_result->fetch_assoc()): ?>
-                <li class="list-group-item">
-                    <strong><?= htmlspecialchars($c['name']) ?></strong> on 
-                    <em><?= htmlspecialchars($c['title']) ?></em><br>
-                    <?= htmlspecialchars($c['content']) ?>
-                    <small class="text-muted float-end"><?= $c['created_at'] ?></small>
-                </li>
-            <?php endwhile; ?>
-        <?php else: ?>
-            <li class="list-group-item">No recent comments yet.</li>
-        <?php endif; ?>
-    </ul>
-</div>
-
-<!-- 📈 Completion Chart -->
+<!-- 💬 Course Comments Viewer -->
 <div class="card mb-5">
-    <div class="card-header bg-secondary text-white">📈 Course Completion Stats</div>
+    <div class="card-header bg-primary text-white">💬 View & Reply to Comments</div>
     <div class="card-body">
-        <canvas id="completionChart" height="200"></canvas>
+        <form method="GET" class="mb-3">
+            <label for="course_id">Select Course:</label>
+            <div class="input-group">
+                <select name="course_id" id="course_id" class="form-select" onchange="this.form.submit()">
+                    <option value="">-- Choose a Course --</option>
+                    <?php while ($course = $courses->fetch_assoc()): ?>
+                        <option value="<?= $course['id'] ?>" <?= $selected_course_id == $course['id'] ? 'selected' : '' ?>>
+                            <?= htmlspecialchars($course['title']) ?>
+                        </option>
+                    <?php endwhile; ?>
+                </select>
+                <?php if ($selected_course_id): ?>
+                    <a href="dashboard.php" class="btn btn-outline-secondary">Clear</a>
+                <?php endif; ?>
+            </div>
+        </form>
+
+        <?php if ($selected_course_id): ?>
+            <?php if ($comments_result && $comments_result->num_rows > 0): ?>
+                <ul class="list-group">
+                    <?php while ($com = $comments_result->fetch_assoc()): ?>
+                        <li class="list-group-item">
+                            <strong><?= htmlspecialchars($com['name']) ?></strong><br>
+                            <?= htmlspecialchars($com['content']) ?><br>
+                            <small class="text-muted float-end"><?= $com['created_at'] ?></small>
+
+                            <?php
+                            // Fetch reply if exists
+                            $comment_id = $com['id'];
+                            $reply_stmt = $conn->prepare("SELECT reply, created_at FROM replies WHERE comment_id = ?");
+                            $reply_stmt->bind_param("i", $comment_id);
+                            $reply_stmt->execute();
+                            $reply = $reply_stmt->get_result()->fetch_assoc();
+                            ?>
+
+                            <?php if ($reply): ?>
+                                <div class="mt-2 p-2 bg-light border rounded">
+                                    <strong>You replied:</strong><br>
+                                    <?= htmlspecialchars($reply['reply']) ?>
+                                    <small class="text-muted float-end"><?= $reply['created_at'] ?></small>
+                                </div>
+                            <?php else: ?>
+                                <!-- Reply Form -->
+                                <form method="POST" class="mt-2">
+                                    <input type="hidden" name="comment_id" value="<?= $comment_id ?>">
+                                    <input type="hidden" name="course_id" value="<?= $selected_course_id ?>">
+                                    <textarea name="reply" class="form-control form-control-sm mb-2" rows="2" placeholder="Write a reply..."></textarea>
+                                    <button type="submit" name="submit_reply" class="btn btn-sm btn-primary">Reply</button>
+                                </form>
+                            <?php endif; ?>
+                        </li>
+                    <?php endwhile; ?>
+                </ul>
+            <?php else: ?>
+                <p class="text-muted">No comments yet for this course.</p>
+            <?php endif; ?>
+        <?php else: ?>
+            <p class="text-muted">Select a course above to view its comments.</p>
+        <?php endif; ?>
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script>
-const ctx = document.getElementById('completionChart').getContext('2d');
-new Chart(ctx, {
-    type: 'bar',
-    data: {
-        labels: [<?= implode(',', array_map(fn($r) => "'" . addslashes($r['title']) . "'", $completion_data->fetch_all(MYSQLI_ASSOC))) ?>],
-        datasets: [{
-            label: 'Completions',
-            data: [<?= implode(',', array_map(fn($r) => $r['completed'], $completion_data->fetch_all(MYSQLI_ASSOC))) ?>],
-            backgroundColor: '#2ecc71'
-        }]
-    },
-    options: {
-        responsive: true,
-        plugins: { legend: { display: false } },
-        scales: { y: { beginAtZero: true } }
-    }
-});
-</script>
 
 <?php elseif ($role === 'learner'): ?>
 
