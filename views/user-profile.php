@@ -203,9 +203,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_pass'])) {
       </ul>
 
       <hr>
-      <canvas id="progressChart" height="150"></canvas>
-      <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-      <script>
+ <!-- 📊 Compact Course Progress Chart -->
+<div class="collapse" id="courseProgress">
+  <div class="card card-body mb-4">
+    <!-- Course List Here (if any) -->
+
+    <!-- Centered Small Doughnut Chart -->
+    <div class="text-center mt-4">
+      <div class="mx-auto" style="max-width: 240px;">
+        <canvas id="progressChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Chart Script -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
       const ctx = document.getElementById('progressChart').getContext('2d');
       new Chart(ctx, {
         type: 'doughnut',
@@ -214,13 +226,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_pass'])) {
           datasets: [{
             data: [<?= $status_counts['in_progress'] ?>, <?= $status_counts['completed'] ?>],
             backgroundColor: ['#f39c12', '#2ecc71'],
+            borderWidth: 1
           }]
         },
-        options: { plugins: { legend: { position: 'bottom' } } }
+        options: {
+          responsive: true,
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: {
+                boxWidth: 20,
+                padding: 10
+              }
+            }
+          }
+        }
       });
-      </script>
-    </div>
+    </script>
   </div>
+</div>
+
   <?php endif; ?>
 
   <a href="dashboard.php" class="btn btn-secondary mt-4">← Back to Dashboard</a>
