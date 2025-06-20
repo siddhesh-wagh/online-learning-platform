@@ -10,13 +10,12 @@ if ($_SESSION['role'] !== 'learner') {
 $user_id = $_SESSION['user_id'];
 $search = $_GET['search'] ?? '';
 $page = max(1, (int)($_GET['page'] ?? 1));
-$limit = 5;
+$limit = 6;
 $offset = ($page - 1) * $limit;
 
-// Prepare search query
 $search_sql = "%$search%";
 
-// Count total
+// Get total course count
 $count_stmt = $conn->prepare("
     SELECT COUNT(*) AS total 
     FROM courses c 
@@ -28,9 +27,9 @@ $count_stmt->execute();
 $total = $count_stmt->get_result()->fetch_assoc()['total'];
 $total_pages = ceil($total / $limit);
 
-// Fetch paginated results
+// Fetch courses + thumbnails
 $stmt = $conn->prepare("
-    SELECT c.id, c.title, c.description, u.name AS instructor_name 
+    SELECT c.id, c.title, c.description, c.thumbnail_path, u.name AS instructor_name 
     FROM courses c
     JOIN users u ON c.instructor_id = u.id 
     WHERE c.title LIKE ? OR u.name LIKE ? 
@@ -50,52 +49,55 @@ $result = $stmt->get_result();
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body class="bg-light">
-<div class="container py-4">
-  <h2 class="mb-4">📚 Available Courses</h2>
-  <a href="dashboard.php" class="btn btn-secondary mb-3">← Back to Dashboard</a>
+<div class="container py-5">
+
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0">📚 Available Courses</h2>
+    <a href="dashboard.php" class="btn btn-outline-secondary">← Back to Dashboard</a>
+  </div>
 
   <!-- 🔍 Search Form -->
   <form method="GET" class="mb-4">
     <div class="input-group">
-      <input type="text" name="search" class="form-control" placeholder="Search by title or instructor..." value="<?= htmlspecialchars($search) ?>">
+      <input type="text" name="search" class="form-control" placeholder="Search by course title or instructor..." value="<?= htmlspecialchars($search) ?>">
       <button class="btn btn-primary">Search</button>
     </div>
   </form>
 
   <?php if ($result->num_rows > 0): ?>
-    <div class="row">
-      <?php while ($row = $result->fetch_assoc()): ?>
+    <div class="row g-4">
+      <?php while ($course = $result->fetch_assoc()): ?>
         <?php
-        $cid = $row['id'];
-        $status_stmt = $conn->prepare("SELECT status FROM course_progress WHERE user_id = ? AND course_id = ?");
-        $status_stmt->bind_param("ii", $user_id, $cid);
-        $status_stmt->execute();
-        $status_result = $status_stmt->get_result();
-        $status_data = $status_result->fetch_assoc();
-        $status = $status_data['status'] ?? 'in_progress';
-        $progress = ($status === 'completed') ? 100 : 50;
+          $cid = $course['id'];
+          $thumbnail = $course['thumbnail_path'] ?? '';
+          $thumbnail_src = ($thumbnail && file_exists("../$thumbnail")) ? "../$thumbnail" : "../assets/images/placeholder-course.png";
+
+          // Progress check
+          $status_stmt = $conn->prepare("SELECT status FROM course_progress WHERE user_id = ? AND course_id = ?");
+          $status_stmt->bind_param("ii", $user_id, $cid);
+          $status_stmt->execute();
+          $status_result = $status_stmt->get_result()->fetch_assoc();
+          $status = $status_result['status'] ?? null;
+          $progress = ($status === 'completed') ? 100 : ($status === 'in_progress' ? 40 : 0);
         ?>
-        <div class="col-md-6 mb-4">
-          <div class="card h-100 shadow-sm">
-            <img src="../assets/images/placeholder-course.png" class="card-img-top" alt="Course Thumbnail">
-            <div class="card-body">
-              <h5 class="card-title"><?= htmlspecialchars($row['title']) ?></h5>
-              <h6 class="card-subtitle mb-2 text-muted">Instructor: <?= htmlspecialchars($row['instructor_name']) ?></h6>
-              <p class="card-text"><?= nl2br(htmlspecialchars($row['description'])) ?></p>
-              
-              <!-- 📊 Progress -->
-              <div class="progress mb-2" style="height: 20px;">
-                <div class="progress-bar bg-<?= $progress === 100 ? 'success' : 'info' ?>" 
-                     role="progressbar" 
-                     style="width: <?= $progress ?>%;" 
-                     aria-valuenow="<?= $progress ?>" 
-                     aria-valuemin="0" 
-                     aria-valuemax="100">
+        <div class="col-md-4">
+          <div class="card shadow-sm h-100 border-0">
+            <img src="<?= $thumbnail_src ?>" class="card-img-top" alt="Course Thumbnail" style="height: 200px; object-fit: cover;">
+            <div class="card-body d-flex flex-column">
+              <h5 class="card-title"><?= htmlspecialchars($course['title']) ?></h5>
+              <p class="card-subtitle text-muted mb-2">👤 <?= htmlspecialchars($course['instructor_name']) ?></p>
+              <p class="card-text small mb-3"><?= nl2br(htmlspecialchars($course['description'])) ?></p>
+
+              <div class="progress mb-3" style="height: 18px;">
+                <div class="progress-bar bg-<?= $progress === 100 ? 'success' : ($progress > 0 ? 'info' : 'secondary') ?>"
+                     role="progressbar"
+                     style="width: <?= $progress ?>%;"
+                     aria-valuenow="<?= $progress ?>" aria-valuemin="0" aria-valuemax="100">
                   <?= $progress ?>%
                 </div>
               </div>
 
-              <a href="course-view.php?id=<?= $cid ?>" class="btn btn-primary">View Course</a>
+              <a href="course-view.php?id=<?= $cid ?>" class="btn btn-sm btn-outline-primary mt-auto">🔎 View Course</a>
             </div>
           </div>
         </div>
@@ -103,8 +105,9 @@ $result = $stmt->get_result();
     </div>
 
     <!-- 🔗 Pagination -->
+    <?php if ($total_pages > 1): ?>
     <nav class="mt-4">
-      <ul class="pagination">
+      <ul class="pagination justify-content-center">
         <?php if ($page > 1): ?>
           <li class="page-item"><a class="page-link" href="?search=<?= urlencode($search) ?>&page=<?= $page - 1 ?>">« Prev</a></li>
         <?php endif; ?>
@@ -114,9 +117,10 @@ $result = $stmt->get_result();
         <?php endif; ?>
       </ul>
     </nav>
+    <?php endif; ?>
 
   <?php else: ?>
-    <p class="alert alert-info">No courses found.</p>
+    <div class="alert alert-info text-center">No courses found.</div>
   <?php endif; ?>
 
 </div>
