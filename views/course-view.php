@@ -25,18 +25,28 @@ $stmt->execute();
 $course = $stmt->get_result()->fetch_assoc();
 if (!$course) { echo "Course not found."; exit; }
 
+// ⏱️ Update last accessed timestamp in course_progress
+$track_stmt = $conn->prepare("
+  INSERT INTO course_progress (user_id, course_id, progress_percent, updated_at)
+  VALUES (?, ?, 0, NOW())
+  ON DUPLICATE KEY UPDATE updated_at = NOW()
+");
+$track_stmt->bind_param("ii", $user_id, $course_id);
+$track_stmt->execute();
+
 // Handle progress update
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
     if (isset($_POST['update_progress'])) {
         $percent = (int) $_POST['progress_percent'];
         if ($percent >= 0 && $percent <= 100) {
-            $stmt = $conn->prepare("INSERT INTO course_progress (user_id, course_id, progress_percent)
-                                    VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE progress_percent = ?");
-            $stmt->bind_param("iiii", $user_id, $course_id, $percent, $percent);
+            $stmt = $conn->prepare("UPDATE course_progress SET progress_percent = ?, updated_at = NOW()
+                                    WHERE user_id = ? AND course_id = ?");
+            $stmt->bind_param("iii", $percent, $user_id, $course_id);
             $stmt->execute();
         }
     } elseif (isset($_POST['reset_progress'])) {
-        $stmt = $conn->prepare("UPDATE course_progress SET progress_percent = 0 WHERE user_id = ? AND course_id = ?");
+        $stmt = $conn->prepare("UPDATE course_progress SET progress_percent = 0, updated_at = NOW() 
+                                WHERE user_id = ? AND course_id = ?");
         $stmt->bind_param("ii", $user_id, $course_id);
         $stmt->execute();
     } elseif (isset($_POST['comment'])) {
@@ -71,7 +81,7 @@ $progress_stmt->bind_param("ii", $user_id, $course_id);
 $progress_stmt->execute();
 $current_percent = $progress_stmt->get_result()->fetch_assoc()['progress_percent'] ?? 0;
 
-// Comments pagination
+// Pagination setup
 $comments_per_page = 5;
 $page = max(1, (int)($_GET['page'] ?? 1));
 $offset = ($page - 1) * $comments_per_page;
@@ -104,19 +114,18 @@ $comments_result = $stmt->get_result();
 </head>
 <body class="bg-light">
 <div class="container py-4">
-<div class="d-flex justify-content-between align-items-center mb-2">
-  <h2 class="mb-0"><?= htmlspecialchars($course['title']) ?></h2>
-  <a href="course-list.php" class="btn btn-outline-secondary btn-sm">← Back to Course List</a>
-</div>
-<p><strong>Instructor:</strong> <?= htmlspecialchars($course['instructor_name']) ?></p>
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <h2 class="mb-0"><?= htmlspecialchars($course['title']) ?></h2>
+    <a href="course-list.php" class="btn btn-outline-secondary btn-sm">← Back to Course List</a>
+  </div>
 
-<p><?= nl2br(htmlspecialchars($course['description'])) ?></p>
+  <p><strong>Instructor:</strong> <?= htmlspecialchars($course['instructor_name']) ?></p>
+  <p><?= nl2br(htmlspecialchars($course['description'])) ?></p>
 
-
-<?php if (!empty($course['file_path'])):
-  $file_url = "../" . $course['file_path'];
-  $file_ext = pathinfo($file_url, PATHINFO_EXTENSION);
-?>
+  <?php if (!empty($course['file_path'])):
+    $file_url = "../" . $course['file_path'];
+    $file_ext = pathinfo($file_url, PATHINFO_EXTENSION);
+  ?>
     <h4 class="mt-4">Course Material</h4>
     <div class="card mb-4">
       <div class="row g-0">
@@ -141,7 +150,8 @@ $comments_result = $stmt->get_result();
           <hr>
           <h6>📊 Course Progress</h6>
           <div class="progress mb-2" style="height: 20px;">
-            <div class="progress-bar" style="width: <?= $current_percent ?>%;">
+            <div class="progress-bar bg-<?= $current_percent === 100 ? 'success' : 'info' ?>" 
+                 style="width: <?= $current_percent ?>%;">
               <?= $current_percent ?>%
             </div>
           </div>
