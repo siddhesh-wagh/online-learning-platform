@@ -4,18 +4,17 @@ include '../db-config.php';
 
 $user_id = $_SESSION['user_id'];
 
-// Fetch latest user info
-$stmt = $conn->prepare("SELECT name, email, role, created_at, bio, profile_pic FROM users WHERE id = ?");
+$stmt = $conn->prepare("SELECT name, email, role, created_at, bio, profile_pic, last_login FROM users WHERE id = ?");
 $stmt->bind_param("i", $user_id);
 $stmt->execute();
 $user = $stmt->get_result()->fetch_assoc();
 
 $msg = "";
 
-// Handle profile update
+// Update Profile Info
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
     $new_name = htmlspecialchars(trim($_POST['name']));
-    $new_bio  = htmlspecialchars(trim($_POST['bio']));
+    $new_bio = htmlspecialchars(trim($_POST['bio']));
     $upload_path = $user['profile_pic'];
 
     if (!empty($_FILES['profile_pic']['name'])) {
@@ -23,6 +22,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
         if (in_array($ext, ['jpg', 'jpeg', 'png'])) {
             $filename = time() . "_$user_id.$ext";
             $target = "../uploads/profile_pics/$filename";
+            if (!is_dir("../uploads/profile_pics")) {
+                mkdir("../uploads/profile_pics", 0777, true);
+            }
             if (move_uploaded_file($_FILES['profile_pic']['tmp_name'], $target)) {
                 $upload_path = "uploads/profile_pics/$filename";
             }
@@ -38,10 +40,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
     }
 }
 
-// Handle password change
+// Change Password
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_pass'])) {
     $current = $_POST['current_pass'];
-    $new     = $_POST['new_pass'];
+    $new = $_POST['new_pass'];
 
     $check = $conn->prepare("SELECT password FROM users WHERE id = ?");
     $check->bind_param("i", $user_id);
@@ -66,7 +68,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_pass'])) {
   <title>My Profile</title>
   <meta charset="UTF-8" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    .profile-avatar {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+    .initials-avatar {
+      width: 120px;
+      height: 120px;
+      background-color: #6c757d;
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.5rem;
+    }
+  </style>
 </head>
 <body class="bg-light">
 
@@ -74,28 +94,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_pass'])) {
   <h2 class="mb-4">👤 My Profile</h2>
   <?= $msg ?>
 
-  <div class="card mb-4">
+  <!-- Profile Card -->
+  <div class="card mb-4 shadow-sm">
     <div class="card-body d-flex align-items-center">
-      <img src="../<?= $user['profile_pic'] ?: 'assets/images/default-avatar.png' ?>" class="img-thumbnail me-4" width="120" height="120">
-      <div>
-        <h5><?= htmlspecialchars($user['name']) ?></h5>
-        <p class="text-muted mb-1"><?= htmlspecialchars($user['email']) ?></p>
-        <p><span class="badge bg-info"><?= $user['role'] ?></span></p>
-        <p class="text-muted">Joined: <?= $user['created_at'] ?></p>
-        <?php if (!empty($user['bio'])): ?>
-        <p class="mt-2"><strong>Bio:</strong> <?= nl2br(htmlspecialchars($user['bio'])) ?></p>
+      <?php if ($user['profile_pic'] && file_exists("../" . $user['profile_pic'])): ?>
+        <img src="../<?= $user['profile_pic'] ?>" class="profile-avatar me-4">
+      <?php else: ?>
+        <div class="initials-avatar me-4">
+          <?= strtoupper(substr($user['name'], 0, 1)) ?>
+        </div>
       <?php endif; ?>
-</div>
+      <div>
+        <h4 class="mb-0"><?= htmlspecialchars($user['name']) ?></h4>
+        <p class="text-muted mb-1"><?= htmlspecialchars($user['email']) ?></p>
+        <p><span class="badge bg-info"><?= ucfirst($user['role']) ?></span></p>
+        <p class="text-muted">Joined: <?= date('F j, Y', strtotime($user['created_at'])) ?></p>
+        <?php if (!empty($user['last_login'])): ?>
+  <p class="text-muted">Last login: <?= date('F j, Y \a\t g:i A', strtotime($user['last_login'])) ?></p>
+<?php endif; ?>
 
+        <?php if (!empty($user['bio'])): ?>
+          <hr>
+          <p class="mb-0"><strong>Bio:</strong> <?= nl2br(htmlspecialchars($user['bio'])) ?></p>
+        <?php endif; ?>
+      </div>
     </div>
   </div>
 
-  <!-- Buttons -->
-  <div class="mb-4 d-flex flex-wrap gap-2">
+  <!-- Controls -->
+  <div class="mb-4 d-flex gap-2 flex-wrap">
     <button class="btn btn-outline-primary" data-bs-toggle="collapse" data-bs-target="#editInfo">✏️ Edit Info</button>
     <button class="btn btn-outline-dark" data-bs-toggle="collapse" data-bs-target="#changePassword">🔒 Change Password</button>
     <?php if ($user['role'] === 'learner'): ?>
-      <button class="btn btn-outline-success" data-bs-toggle="collapse" data-bs-target="#courseProgress">📚 View Courses & Progress</button>
+      <button class="btn btn-outline-success" data-bs-toggle="collapse" data-bs-target="#courseProgress">📚 Course Progress</button>
     <?php endif; ?>
   </div>
 
@@ -113,7 +144,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_pass'])) {
           <textarea name="bio" class="form-control"><?= htmlspecialchars($user['bio']) ?></textarea>
         </div>
         <div class="mb-3">
-          <label>Profile Picture (jpg/png)</label>
+          <label>Upload Profile Picture</label>
           <input type="file" name="profile_pic" class="form-control">
         </div>
         <button class="btn btn-primary">💾 Save Changes</button>
@@ -150,20 +181,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_pass'])) {
       $result = $stmt->get_result();
 
       $status_counts = ['in_progress' => 0, 'completed' => 0];
-      if ($result->num_rows > 0):
-        while ($row = $result->fetch_assoc()):
-          $status_counts[$row['status']]++;
       ?>
-        <div class="mb-3">
-          <strong><?= htmlspecialchars($row['title']) ?></strong><br>
-          <span class="badge bg-<?= $row['status'] === 'completed' ? 'success' : 'warning' ?>"><?= ucfirst($row['status']) ?></span>
-          <a href="course-view.php?id=<?= $row['id'] ?>" class="btn btn-sm btn-outline-primary ms-2">View</a>
-        </div>
-      <?php endwhile; else: ?>
-        <p class="text-muted">No enrolled courses yet.</p>
-      <?php endif; ?>
+      <ul class="list-group mb-3">
+        <?php if ($result->num_rows > 0): ?>
+          <?php while ($row = $result->fetch_assoc()): 
+            $status_counts[$row['status']]++;
+          ?>
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+              <?= htmlspecialchars($row['title']) ?>
+              <div>
+                <span class="badge bg-<?= $row['status'] === 'completed' ? 'success' : 'warning' ?>">
+                  <?= ucfirst($row['status']) ?>
+                </span>
+                <a href="course-view.php?id=<?= $row['id'] ?>" class="btn btn-sm btn-outline-primary ms-2">View</a>
+              </div>
+            </li>
+          <?php endwhile; ?>
+        <?php else: ?>
+          <li class="list-group-item text-muted">No enrolled courses found.</li>
+        <?php endif; ?>
+      </ul>
+
       <hr>
       <canvas id="progressChart" height="150"></canvas>
+      <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
       <script>
       const ctx = document.getElementById('progressChart').getContext('2d');
       new Chart(ctx, {
@@ -174,7 +215,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_pass'])) {
             data: [<?= $status_counts['in_progress'] ?>, <?= $status_counts['completed'] ?>],
             backgroundColor: ['#f39c12', '#2ecc71'],
           }]
-        }
+        },
+        options: { plugins: { legend: { position: 'bottom' } } }
       });
       </script>
     </div>
@@ -182,7 +224,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_pass'])) {
   <?php endif; ?>
 
   <a href="dashboard.php" class="btn btn-secondary mt-4">← Back to Dashboard</a>
-
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
