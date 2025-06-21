@@ -29,22 +29,26 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             }
 
             // ✅ Login success
-           // ✅ Login success
-else {
-    $_SESSION['user_id'] = $user['id'];
-    $_SESSION['name']    = $user['name'];
-    $_SESSION['email']   = $user['email'];
-    $_SESSION['role']    = $user['role'];
+            else {
+                $_SESSION['user_id'] = $user['id'];
+                $_SESSION['name']    = $user['name'];
+                $_SESSION['email']   = $user['email'];
+                $_SESSION['role']    = $user['role'];
 
-    // ✅ Update last_login timestamp
-    $update = $conn->prepare("UPDATE users SET last_login = NOW() WHERE id = ?");
-    $update->bind_param("i", $user['id']);
-    $update->execute();
+                // ✅ Update last_login
+                $update = $conn->prepare("UPDATE users SET last_login = NOW() WHERE id = ?");
+                $update->bind_param("i", $user['id']);
+                $update->execute();
 
-    header("Location: ../views/dashboard.php");
-    exit;
-}
+                // ✅ Log the login action
+                $log_stmt = $conn->prepare("INSERT INTO logs (user_id, action) VALUES (?, ?)");
+                $action = "Logged in";
+                $log_stmt->bind_param("is", $user['id'], $action);
+                $log_stmt->execute();
 
+                header("Location: ../views/dashboard.php");
+                exit;
+            }
 
         } else {
             $error = "❌ Invalid password.";
