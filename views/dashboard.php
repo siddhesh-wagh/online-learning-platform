@@ -1,9 +1,11 @@
 <?php
 include '../includes/auth.php';
 include '../db-config.php';
+include '../includes/functions.php'; // ✅ Add this if not already
 
 $role = $_SESSION['role'];
 $name = $_SESSION['name'];
+$instructor_id = $_SESSION['user_id'];
 $unread_count = 0;
 $notifs = [];
 
@@ -32,7 +34,7 @@ if ($role === 'instructor') {
         exit;
     }
 }
-// Handle instructor replies to comments
+// ✅ Handle instructor replies to comments
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_reply'])) {
     $comment_id = (int) $_POST['comment_id'];
     $course_id = (int) $_POST['course_id'];
@@ -40,13 +42,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_reply'])) {
 
     if ($reply !== '') {
         $stmt = $conn->prepare("INSERT INTO replies (comment_id, instructor_id, reply) VALUES (?, ?, ?)");
-        $stmt->bind_param("iis", $comment_id, $uid, $reply);
+        $stmt->bind_param("iis", $comment_id, $instructor_id, $reply);
         $stmt->execute();
+
+        // ✅ Log the reply action via helper
+        logAction($instructor_id, "Replied to a comment on course ID $course_id");
     }
 
     header("Location: dashboard.php?course_id=$course_id");
     exit;
 }
+
 
 ?>
 
