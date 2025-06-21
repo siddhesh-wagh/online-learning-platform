@@ -2,7 +2,11 @@
 include '../includes/auth.php';
 include '../db-config.php';
 
-if ($_SESSION['role'] !== 'learner') {
+$role = $_SESSION['role'] ?? '';
+$is_admin = ($role === 'admin') && isset($_GET['admin']);
+$is_learner = $role === 'learner';
+
+if (!$is_learner && !$is_admin) {
     echo "Access denied.";
     exit;
 }
@@ -15,7 +19,7 @@ $offset = ($page - 1) * $limit;
 
 $search_sql = "%$search%";
 
-// Get total course count
+// Total count
 $count_stmt = $conn->prepare("
     SELECT COUNT(*) AS total 
     FROM courses c 
@@ -27,7 +31,7 @@ $count_stmt->execute();
 $total = $count_stmt->get_result()->fetch_assoc()['total'];
 $total_pages = ceil($total / $limit);
 
-// Fetch courses + thumbnails
+// Fetch courses
 $stmt = $conn->prepare("
     SELECT c.id, c.title, c.description, c.thumbnail_path, u.name AS instructor_name 
     FROM courses c
@@ -56,10 +60,13 @@ $result = $stmt->get_result();
     <a href="dashboard.php" class="btn btn-outline-secondary">← Back to Dashboard</a>
   </div>
 
-  <!-- 🔍 Search Form -->
+  <!-- 🔍 Search -->
   <form method="GET" class="mb-4">
     <div class="input-group">
-      <input type="text" name="search" class="form-control" placeholder="Search by course title or instructor..." value="<?= htmlspecialchars($search) ?>">
+      <input type="text" name="search" class="form-control" placeholder="Search by course or instructor..." value="<?= htmlspecialchars($search) ?>">
+      <?php if ($is_admin): ?>
+        <input type="hidden" name="admin" value="1">
+      <?php endif; ?>
       <button class="btn btn-primary">Search</button>
     </div>
   </form>
@@ -72,22 +79,26 @@ $result = $stmt->get_result();
           $thumbnail = $course['thumbnail_path'] ?? '';
           $thumbnail_src = ($thumbnail && file_exists("../$thumbnail")) ? "../$thumbnail" : "../assets/images/placeholder-course.png";
 
-          // Progress check
-          $status_stmt = $conn->prepare("SELECT status FROM course_progress WHERE user_id = ? AND course_id = ?");
-          $status_stmt->bind_param("ii", $user_id, $cid);
-          $status_stmt->execute();
-          $status_result = $status_stmt->get_result()->fetch_assoc();
-          $status = $status_result['status'] ?? null;
-          $progress = ($status === 'completed') ? 100 : ($status === 'in_progress' ? 40 : 0);
+          // Progress only for learners
+          $progress = null;
+          if ($is_learner) {
+              $status_stmt = $conn->prepare("SELECT status FROM course_progress WHERE user_id = ? AND course_id = ?");
+              $status_stmt->bind_param("ii", $user_id, $cid);
+              $status_stmt->execute();
+              $status_data = $status_stmt->get_result()->fetch_assoc();
+              $status = $status_data['status'] ?? 'not_started';
+              $progress = $status === 'completed' ? 100 : ($status === 'in_progress' ? 40 : 0);
+          }
         ?>
         <div class="col-md-4">
           <div class="card shadow-sm h-100 border-0">
             <img src="<?= $thumbnail_src ?>" class="card-img-top" alt="Course Thumbnail" style="height: 200px; object-fit: cover;">
             <div class="card-body d-flex flex-column">
               <h5 class="card-title"><?= htmlspecialchars($course['title']) ?></h5>
-              <p class="card-subtitle text-muted mb-2">👤 <?= htmlspecialchars($course['instructor_name']) ?></p>
+              <p class="text-muted mb-2">👤 <?= htmlspecialchars($course['instructor_name']) ?></p>
               <p class="card-text small mb-3"><?= nl2br(htmlspecialchars($course['description'])) ?></p>
 
+              <?php if ($is_learner): ?>
               <div class="progress mb-3" style="height: 18px;">
                 <div class="progress-bar bg-<?= $progress === 100 ? 'success' : ($progress > 0 ? 'info' : 'secondary') ?>"
                      role="progressbar"
@@ -96,6 +107,7 @@ $result = $stmt->get_result();
                   <?= $progress ?>%
                 </div>
               </div>
+              <?php endif; ?>
 
               <a href="course-view.php?id=<?= $cid ?>" class="btn btn-sm btn-outline-primary mt-auto">🔎 View Course</a>
             </div>
@@ -109,11 +121,11 @@ $result = $stmt->get_result();
     <nav class="mt-4">
       <ul class="pagination justify-content-center">
         <?php if ($page > 1): ?>
-          <li class="page-item"><a class="page-link" href="?search=<?= urlencode($search) ?>&page=<?= $page - 1 ?>">« Prev</a></li>
+          <li class="page-item"><a class="page-link" href="?<?= http_build_query(array_merge($_GET, ['page' => $page - 1])) ?>">« Prev</a></li>
         <?php endif; ?>
         <li class="page-item disabled"><span class="page-link">Page <?= $page ?> of <?= $total_pages ?></span></li>
         <?php if ($page < $total_pages): ?>
-          <li class="page-item"><a class="page-link" href="?search=<?= urlencode($search) ?>&page=<?= $page + 1 ?>">Next »</a></li>
+          <li class="page-item"><a class="page-link" href="?<?= http_build_query(array_merge($_GET, ['page' => $page + 1])) ?>">Next »</a></li>
         <?php endif; ?>
       </ul>
     </nav>
