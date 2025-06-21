@@ -64,11 +64,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // Insert
+    // Insert course
     $stmt = $conn->prepare("INSERT INTO courses (instructor_id, title, description, file_path, thumbnail_path) VALUES (?, ?, ?, ?, ?)");
     $stmt->bind_param("issss", $instructor_id, $title, $description, $file_path, $thumbnail_path);
 
     if ($stmt->execute()) {
+        // ✅ Log the creation
+        $log_stmt = $conn->prepare("INSERT INTO logs (user_id, action) VALUES (?, ?)");
+        $log_action = "Created course: " . $title;
+        $log_stmt->bind_param("is", $instructor_id, $log_action);
+        $log_stmt->execute();
+
         echo "<div class='alert alert-success'>✅ Course added successfully!</div>";
     } else {
         echo "<div class='alert alert-danger'>❌ Error: " . $stmt->error . "</div>";
