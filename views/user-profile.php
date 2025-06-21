@@ -1,17 +1,22 @@
 <?php
 include '../includes/auth.php';
 include '../db-config.php';
+include '../includes/functions.php'; // ✅ Logging function
 
 $user_id = $_SESSION['user_id'];
 
+// Fetch user info
 $stmt = $conn->prepare("SELECT name, email, role, created_at, bio, profile_pic, last_login FROM users WHERE id = ?");
 $stmt->bind_param("i", $user_id);
 $stmt->execute();
 $user = $stmt->get_result()->fetch_assoc();
 
+// ✅ Log profile page view
+logAction($user_id, "Viewed profile page");
+
 $msg = "";
 
-// Update Profile Info
+// ✅ Profile update
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
     $new_name = htmlspecialchars(trim($_POST['name']));
     $new_bio  = htmlspecialchars(trim($_POST['bio']));
@@ -32,20 +37,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
     $stmt->bind_param("sssi", $new_name, $new_bio, $upload_path, $user_id);
     if ($stmt->execute()) {
         $_SESSION['name'] = $new_name;
-
-        // ✅ Log profile update
-        $log_stmt = $conn->prepare("INSERT INTO logs (user_id, action) VALUES (?, ?)");
-        $log_action = "Updated profile info";
-        $log_stmt->bind_param("is", $user_id, $log_action);
-        $log_stmt->execute();
-
+        logAction($user_id, "Updated profile info"); // ✅ Log update
         header("Location: user-profile.php");
         exit;
     }
 }
 
-
-// Change Password
+// ✅ Password change
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_pass'])) {
     $current = $_POST['current_pass'];
     $new     = $_POST['new_pass'];
@@ -60,13 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_pass'])) {
         $up = $conn->prepare("UPDATE users SET password = ? WHERE id = ?");
         $up->bind_param("si", $new_hashed, $user_id);
         $up->execute();
-
-        // ✅ Log password change
-        $log_stmt = $conn->prepare("INSERT INTO logs (user_id, action) VALUES (?, ?)");
-        $log_action = "Changed password";
-        $log_stmt->bind_param("is", $user_id, $log_action);
-        $log_stmt->execute();
-
+        logAction($user_id, "Changed password"); // ✅ Log password change
         $msg = "<div class='alert alert-success'>✅ Password updated!</div>";
     } else {
         $msg = "<div class='alert alert-danger'>❌ Incorrect current password.</div>";
@@ -82,21 +74,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_pass'])) {
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
   <style>
     .profile-avatar {
-      width: 120px;
-      height: 120px;
-      border-radius: 50%;
-      object-fit: cover;
+      width: 120px; height: 120px; border-radius: 50%; object-fit: cover;
     }
     .initials-avatar {
-      width: 120px;
-      height: 120px;
-      background-color: #6c757d;
-      color: white;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 2.5rem;
+      width: 120px; height: 120px; background-color: #6c757d; color: white;
+      border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2.5rem;
     }
   </style>
 </head>
@@ -122,12 +104,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_pass'])) {
         <p><span class="badge bg-info"><?= ucfirst($user['role']) ?></span></p>
         <p class="text-muted">Joined: <?= date('F j, Y', strtotime($user['created_at'])) ?></p>
         <?php if (!empty($user['last_login'])): ?>
-  <p class="text-muted">Last login: <?= date('F j, Y \a\t g:i A', strtotime($user['last_login'])) ?></p>
-<?php endif; ?>
-
+          <p class="text-muted">Last login: <?= date('F j, Y \a\t g:i A', strtotime($user['last_login'])) ?></p>
+        <?php endif; ?>
         <?php if (!empty($user['bio'])): ?>
-          <hr>
-          <p class="mb-0"><strong>Bio:</strong> <?= nl2br(htmlspecialchars($user['bio'])) ?></p>
+          <hr><p class="mb-0"><strong>Bio:</strong> <?= nl2br(htmlspecialchars($user['bio'])) ?></p>
         <?php endif; ?>
       </div>
     </div>
@@ -147,16 +127,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_pass'])) {
     <div class="card card-body mb-4">
       <form method="POST" enctype="multipart/form-data">
         <input type="hidden" name="update_profile" value="1">
-        <div class="mb-3">
-          <label>Name</label>
+        <div class="mb-3"><label>Name</label>
           <input name="name" class="form-control" value="<?= htmlspecialchars($user['name']) ?>" required>
         </div>
-        <div class="mb-3">
-          <label>Bio</label>
+        <div class="mb-3"><label>Bio</label>
           <textarea name="bio" class="form-control"><?= htmlspecialchars($user['bio']) ?></textarea>
         </div>
-        <div class="mb-3">
-          <label>Upload Profile Picture</label>
+        <div class="mb-3"><label>Upload Profile Picture</label>
           <input type="file" name="profile_pic" class="form-control">
         </div>
         <button class="btn btn-primary">💾 Save Changes</button>
@@ -169,12 +146,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_pass'])) {
     <div class="card card-body mb-4">
       <form method="POST">
         <input type="hidden" name="change_pass" value="1">
-        <div class="mb-3">
-          <label>Current Password</label>
+        <div class="mb-3"><label>Current Password</label>
           <input type="password" name="current_pass" class="form-control" required>
         </div>
-        <div class="mb-3">
-          <label>New Password</label>
+        <div class="mb-3"><label>New Password</label>
           <input type="password" name="new_pass" class="form-control" required>
         </div>
         <button class="btn btn-dark">Update Password</button>
@@ -191,7 +166,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_pass'])) {
       $stmt->bind_param("i", $user_id);
       $stmt->execute();
       $result = $stmt->get_result();
-
       $status_counts = ['in_progress' => 0, 'completed' => 0];
       ?>
       <ul class="list-group mb-3">
@@ -214,50 +188,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_pass'])) {
         <?php endif; ?>
       </ul>
 
-      <hr>
- <!-- 📊 Compact Course Progress Chart -->
-<div class="collapse" id="courseProgress">
-  <div class="card card-body mb-4">
-    <!-- Course List Here (if any) -->
-
-    <!-- Centered Small Doughnut Chart -->
-    <div class="text-center mt-4">
-      <div class="mx-auto" style="max-width: 240px;">
-        <canvas id="progressChart"></canvas>
+      <!-- Progress Chart -->
+      <div class="text-center mt-4">
+        <div class="mx-auto" style="max-width: 240px;">
+          <canvas id="progressChart"></canvas>
+        </div>
       </div>
-    </div>
-
-    <!-- Chart Script -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script>
-      const ctx = document.getElementById('progressChart').getContext('2d');
-      new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-          labels: ['In Progress', 'Completed'],
-          datasets: [{
-            data: [<?= $status_counts['in_progress'] ?>, <?= $status_counts['completed'] ?>],
-            backgroundColor: ['#f39c12', '#2ecc71'],
-            borderWidth: 1
-          }]
-        },
-        options: {
-          responsive: true,
-          plugins: {
-            legend: {
-              position: 'bottom',
-              labels: {
-                boxWidth: 20,
-                padding: 10
-              }
-            }
+      <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+      <script>
+        new Chart(document.getElementById('progressChart'), {
+          type: 'doughnut',
+          data: {
+            labels: ['In Progress', 'Completed'],
+            datasets: [{
+              data: [<?= $status_counts['in_progress'] ?>, <?= $status_counts['completed'] ?>],
+              backgroundColor: ['#f39c12', '#2ecc71'],
+              borderWidth: 1
+            }]
+          },
+          options: {
+            plugins: { legend: { position: 'bottom' } },
+            responsive: true
           }
-        }
-      });
-    </script>
+        });
+      </script>
+    </div>
   </div>
-</div>
-
   <?php endif; ?>
 
   <a href="dashboard.php" class="btn btn-secondary mt-4">← Back to Dashboard</a>
