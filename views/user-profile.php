@@ -14,7 +14,7 @@ $msg = "";
 // Update Profile Info
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
     $new_name = htmlspecialchars(trim($_POST['name']));
-    $new_bio = htmlspecialchars(trim($_POST['bio']));
+    $new_bio  = htmlspecialchars(trim($_POST['bio']));
     $upload_path = $user['profile_pic'];
 
     if (!empty($_FILES['profile_pic']['name'])) {
@@ -22,9 +22,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
         if (in_array($ext, ['jpg', 'jpeg', 'png'])) {
             $filename = time() . "_$user_id.$ext";
             $target = "../uploads/profile_pics/$filename";
-            if (!is_dir("../uploads/profile_pics")) {
-                mkdir("../uploads/profile_pics", 0777, true);
-            }
             if (move_uploaded_file($_FILES['profile_pic']['tmp_name'], $target)) {
                 $upload_path = "uploads/profile_pics/$filename";
             }
@@ -35,15 +32,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
     $stmt->bind_param("sssi", $new_name, $new_bio, $upload_path, $user_id);
     if ($stmt->execute()) {
         $_SESSION['name'] = $new_name;
+
+        // ✅ Log profile update
+        $log_stmt = $conn->prepare("INSERT INTO logs (user_id, action) VALUES (?, ?)");
+        $log_action = "Updated profile info";
+        $log_stmt->bind_param("is", $user_id, $log_action);
+        $log_stmt->execute();
+
         header("Location: user-profile.php");
         exit;
     }
 }
 
+
 // Change Password
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_pass'])) {
     $current = $_POST['current_pass'];
-    $new = $_POST['new_pass'];
+    $new     = $_POST['new_pass'];
 
     $check = $conn->prepare("SELECT password FROM users WHERE id = ?");
     $check->bind_param("i", $user_id);
@@ -55,6 +60,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_pass'])) {
         $up = $conn->prepare("UPDATE users SET password = ? WHERE id = ?");
         $up->bind_param("si", $new_hashed, $user_id);
         $up->execute();
+
+        // ✅ Log password change
+        $log_stmt = $conn->prepare("INSERT INTO logs (user_id, action) VALUES (?, ?)");
+        $log_action = "Changed password";
+        $log_stmt->bind_param("is", $user_id, $log_action);
+        $log_stmt->execute();
+
         $msg = "<div class='alert alert-success'>✅ Password updated!</div>";
     } else {
         $msg = "<div class='alert alert-danger'>❌ Incorrect current password.</div>";
