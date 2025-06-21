@@ -1,6 +1,7 @@
 <?php
 include '../includes/auth.php';
 include '../db-config.php';
+include '../includes/functions.php'; // ✅ Include log function
 
 if ($_SESSION['role'] !== 'instructor') {
     echo "Access denied.";
@@ -69,12 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt->bind_param("issss", $instructor_id, $title, $description, $file_path, $thumbnail_path);
 
     if ($stmt->execute()) {
-        // ✅ Log the creation
-        $log_stmt = $conn->prepare("INSERT INTO logs (user_id, action) VALUES (?, ?)");
-        $log_action = "Created course: " . $title;
-        $log_stmt->bind_param("is", $instructor_id, $log_action);
-        $log_stmt->execute();
-
+        logAction($instructor_id, "Created course: $title"); // ✅ Centralized log
         echo "<div class='alert alert-success'>✅ Course added successfully!</div>";
     } else {
         echo "<div class='alert alert-danger'>❌ Error: " . $stmt->error . "</div>";
