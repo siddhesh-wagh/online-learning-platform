@@ -1,6 +1,7 @@
 <?php
 session_start();
 include '../db-config.php';
+include '../includes/functions.php'; // ✅ Log function included
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $email    = trim($_POST['email']);
@@ -10,41 +11,34 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $stmt = $conn->prepare("SELECT id, name, email, password, role, is_approved, is_verified FROM users WHERE email = ?");
     $stmt->bind_param("s", $email);
     $stmt->execute();
-
     $result = $stmt->get_result();
+
     if ($result->num_rows === 1) {
         $user = $result->fetch_assoc();
 
-        // ✅ Verify password
+        // ✅ Password check
         if (password_verify($password, $user['password'])) {
 
-            // ✅ Block if email not verified
             if (!$user['is_verified']) {
                 $error = "❌ Please verify your email before logging in.";
-            }
 
-            // ✅ Block unapproved instructor
-            elseif ($user['role'] === 'instructor' && !$user['is_approved']) {
+            } elseif ($user['role'] === 'instructor' && !$user['is_approved']) {
                 $error = "❌ Your instructor account is pending admin approval.";
-            }
 
-            // ✅ Login success
-            else {
+            } else {
+                // ✅ Set session
                 $_SESSION['user_id'] = $user['id'];
                 $_SESSION['name']    = $user['name'];
                 $_SESSION['email']   = $user['email'];
                 $_SESSION['role']    = $user['role'];
 
-                // ✅ Update last_login
+                // ✅ Update last login
                 $update = $conn->prepare("UPDATE users SET last_login = NOW() WHERE id = ?");
                 $update->bind_param("i", $user['id']);
                 $update->execute();
 
-                // ✅ Log the login action
-                $log_stmt = $conn->prepare("INSERT INTO logs (user_id, action) VALUES (?, ?)");
-                $action = "Logged in";
-                $log_stmt->bind_param("is", $user['id'], $action);
-                $log_stmt->execute();
+                // ✅ Log login
+                logAction($conn, $user['id'], "Logged in");
 
                 header("Location: ../views/dashboard.php");
                 exit;
@@ -53,6 +47,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         } else {
             $error = "❌ Invalid password.";
         }
+
     } else {
         $error = "❌ User not found.";
     }
