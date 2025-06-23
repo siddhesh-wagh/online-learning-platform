@@ -369,45 +369,45 @@ function timeAgo($datetime) {
 
 <?php elseif ($role === 'admin'): ?>
 <?php
-include '../includes/functions.php'; // if not already included
+include '../includes/functions.php';
 
-// Initial setup
+// Filters
 $search = $_GET['search'] ?? '';
-$from = $_GET['from'] ?? '';
-$to = $_GET['to'] ?? '';
+$from   = $_GET['from'] ?? '';
+$to     = $_GET['to'] ?? '';
 $search = $conn->real_escape_string($search);
-$from = $conn->real_escape_string($from);
-$to = $conn->real_escape_string($to);
+$from   = $conn->real_escape_string($from);
+$to     = $conn->real_escape_string($to);
 
-// Conditions
+// SQL conditions
 $conditions = [];
 if ($search) $conditions[] = "(u.name LIKE '%$search%' OR u.email LIKE '%$search%' OR c.title LIKE '%$search%')";
-if ($from) $conditions[] = "DATE(u.created_at) >= '$from'";
-if ($to) $conditions[] = "DATE(u.created_at) <= '$to'";
-$where_users = count($conditions) > 0 ? 'WHERE ' . implode(' AND ', $conditions) : '';
+if ($from)   $conditions[] = "DATE(u.created_at) >= '$from'";
+if ($to)     $conditions[] = "DATE(u.created_at) <= '$to'";
+$where_users   = count($conditions) > 0 ? 'WHERE ' . implode(' AND ', $conditions) : '';
 $where_courses = $search ? "WHERE title LIKE '%$search%'" : '';
 
-// Today & Week
+// Stats
 $today = date('Y-m-d');
 $last7 = date('Y-m-d', strtotime('-7 days'));
 
-$user_count        = $conn->query("SELECT COUNT(*) AS total FROM users")->fetch_assoc()['total'];
-$instructor_count  = $conn->query("SELECT COUNT(*) AS total FROM users WHERE role = 'instructor'")->fetch_assoc()['total'];
-$learner_count     = $conn->query("SELECT COUNT(*) AS total FROM users WHERE role = 'learner'")->fetch_assoc()['total'];
-$pending_count     = $conn->query("SELECT COUNT(*) AS total FROM users WHERE role = 'instructor' AND is_approved = 0")->fetch_assoc()['total'];
+$user_count       = $conn->query("SELECT COUNT(*) AS total FROM users")->fetch_assoc()['total'];
+$instructor_count = $conn->query("SELECT COUNT(*) AS total FROM users WHERE role = 'instructor'")->fetch_assoc()['total'];
+$learner_count    = $conn->query("SELECT COUNT(*) AS total FROM users WHERE role = 'learner'")->fetch_assoc()['total'];
+$pending_count    = $conn->query("SELECT COUNT(*) AS total FROM users WHERE role = 'instructor' AND is_approved = 0")->fetch_assoc()['total'];
 
-$course_count      = $conn->query("SELECT COUNT(*) AS total FROM courses")->fetch_assoc()['total'];
-$pdf_count         = $conn->query("SELECT COUNT(*) AS total FROM courses WHERE file_path LIKE '%.pdf'")->fetch_assoc()['total'];
-$video_count       = $conn->query("SELECT COUNT(*) AS total FROM courses WHERE file_path LIKE '%.mp4'")->fetch_assoc()['total'];
+$course_count     = $conn->query("SELECT COUNT(*) AS total FROM courses")->fetch_assoc()['total'];
+$pdf_count        = $conn->query("SELECT COUNT(*) AS total FROM courses WHERE file_path LIKE '%.pdf'")->fetch_assoc()['total'];
+$video_count      = $conn->query("SELECT COUNT(*) AS total FROM courses WHERE file_path LIKE '%.mp4'")->fetch_assoc()['total'];
 
-$today_users       = $conn->query("SELECT COUNT(*) AS total FROM users WHERE DATE(created_at) = '$today'")->fetch_assoc()['total'];
-$week_users        = $conn->query("SELECT COUNT(*) AS total FROM users WHERE DATE(created_at) >= '$last7'")->fetch_assoc()['total'];
-$today_courses     = $conn->query("SELECT COUNT(*) AS total FROM courses WHERE DATE(created_at) = '$today'")->fetch_assoc()['total'];
-$week_courses      = $conn->query("SELECT COUNT(*) AS total FROM courses WHERE DATE(created_at) >= '$last7'")->fetch_assoc()['total'];
-$today_comments    = $conn->query("SELECT COUNT(*) AS total FROM comments WHERE DATE(created_at) = '$today'")->fetch_assoc()['total'];
-$week_comments     = $conn->query("SELECT COUNT(*) AS total FROM comments WHERE DATE(created_at) >= '$last7'")->fetch_assoc()['total'];
+$today_users      = $conn->query("SELECT COUNT(*) AS total FROM users WHERE DATE(created_at) = '$today'")->fetch_assoc()['total'];
+$week_users       = $conn->query("SELECT COUNT(*) AS total FROM users WHERE DATE(created_at) >= '$last7'")->fetch_assoc()['total'];
+$today_courses    = $conn->query("SELECT COUNT(*) AS total FROM courses WHERE DATE(created_at) = '$today'")->fetch_assoc()['total'];
+$week_courses     = $conn->query("SELECT COUNT(*) AS total FROM courses WHERE DATE(created_at) >= '$last7'")->fetch_assoc()['total'];
+$today_comments   = $conn->query("SELECT COUNT(*) AS total FROM comments WHERE DATE(created_at) = '$today'")->fetch_assoc()['total'];
+$week_comments    = $conn->query("SELECT COUNT(*) AS total FROM comments WHERE DATE(created_at) >= '$last7'")->fetch_assoc()['total'];
 
-// Filtered data
+// Recent activity
 $where_user = $search ? "WHERE name LIKE '%$search%' OR email LIKE '%$search%'" : "";
 $where_course = $search ? "WHERE title LIKE '%$search%'" : "";
 if ($from && $to) {
@@ -418,43 +418,43 @@ if ($from && $to) {
 $recent_users    = $conn->query("SELECT name, email, created_at FROM users $where_user ORDER BY created_at DESC LIMIT 5");
 $recent_courses  = $conn->query("SELECT title, created_at FROM courses $where_course ORDER BY created_at DESC LIMIT 5");
 $recent_comments = $conn->query("SELECT c.content, c.created_at, u.name, co.title 
-                                  FROM comments c 
-                                  JOIN users u ON c.user_id = u.id 
-                                  JOIN courses co ON c.course_id = co.id 
-                                  ORDER BY c.created_at DESC LIMIT 5");
+                                 FROM comments c 
+                                 JOIN users u ON c.user_id = u.id 
+                                 JOIN courses co ON c.course_id = co.id 
+                                 ORDER BY c.created_at DESC LIMIT 5");
 $security_logs   = $conn->query("SELECT l.action, l.created_at, u.name 
-                                FROM logs l 
-                                JOIN users u ON l.user_id = u.id 
-                                ORDER BY l.created_at DESC LIMIT 5");
+                                 FROM logs l 
+                                 JOIN users u ON l.user_id = u.id 
+                                 ORDER BY l.created_at DESC LIMIT 10");
 ?>
 
-<!-- 📊 Separate Stat Cards -->
+<!-- 📊 Stat Cards -->
 <div class="row text-center mb-4">
   <?php foreach ([
-    ['title' => 'Total Users', 'count' => $user_count, 'color' => 'primary'],
-    ['title' => 'Instructors', 'count' => $instructor_count, 'color' => 'info'],
-    ['title' => 'Learners', 'count' => $learner_count, 'color' => 'secondary'],
-    ['title' => 'Courses', 'count' => $course_count, 'color' => 'success'],
-    ['title' => 'PDF Uploads', 'count' => $pdf_count, 'color' => 'warning'],
-    ['title' => 'Video Uploads', 'count' => $video_count, 'color' => 'dark'],
-    ['title' => 'Pending Approvals', 'count' => $pending_count, 'color' => 'danger'],
-  ] as $item): ?>
-    <div class="col-md-3 mb-3">
-      <div class="card border-<?= $item['color'] ?>">
-        <div class="card-body">
-          <h6 class="text-<?= $item['color'] ?>"><?= $item['title'] ?></h6>
-          <p class="fs-4"><?= $item['count'] ?></p>
-        </div>
+    ['Total Users', $user_count, 'primary'],
+    ['Instructors', $instructor_count, 'info'],
+    ['Learners', $learner_count, 'secondary'],
+    ['Courses', $course_count, 'success'],
+    ['PDF Uploads', $pdf_count, 'warning'],
+    ['Video Uploads', $video_count, 'dark'],
+    ['Pending Approvals', $pending_count, 'danger']
+  ] as [$label, $count, $color]): ?>
+  <div class="col-md-3 mb-3">
+    <div class="card border-<?= $color ?>">
+      <div class="card-body">
+        <h6 class="text-<?= $color ?>"><?= $label ?></h6>
+        <p class="fs-4"><?= $count ?></p>
       </div>
     </div>
+  </div>
   <?php endforeach; ?>
 </div>
 
-<!-- 📈 Chart Below Cards -->
+<!-- 📈 User Chart -->
 <div class="row mb-4">
   <div class="col-md-6 mx-auto">
     <div class="card">
-      <div class="card-header bg-secondary text-white text-center">📊 User Distribution</div>
+      <div class="card-header bg-secondary text-white text-center">📊 User Breakdown</div>
       <div class="card-body text-center">
         <canvas id="adminChart" height="200"></canvas>
       </div>
@@ -462,7 +462,7 @@ $security_logs   = $conn->query("SELECT l.action, l.created_at, u.name
   </div>
 </div>
 
-<!-- 🗓️ Summary Overview -->
+<!-- 🗓 Summary -->
 <div class="row mb-4">
   <div class="col-md-6">
     <div class="card border-success">
@@ -486,8 +486,8 @@ $security_logs   = $conn->query("SELECT l.action, l.created_at, u.name
   </div>
 </div>
 
-<!-- 🧭 Tab Navigation: Users, Courses, Comments, Logs -->
-<ul class="nav nav-tabs mt-4" id="adminTabs" role="tablist">
+<!-- 🧭 Tabs for Users, Courses, Comments, Logs -->
+<ul class="nav nav-tabs mt-4" role="tablist">
   <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tabUsers">👥 Users</a></li>
   <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabCourses">📚 Courses</a></li>
   <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabComments">💬 Comments</a></li>
@@ -527,58 +527,30 @@ $security_logs   = $conn->query("SELECT l.action, l.created_at, u.name
     </ul>
   </div>
   <div class="tab-pane fade" id="tabLogs">
-    <ul class="list-group">
-      <?php while ($log = $security_logs->fetch_assoc()): ?>
-        <li class="list-group-item">
-          <?= htmlspecialchars($log['name']) ?> - <?= $log['action'] ?>
-          <small class="float-end text-muted"><?= $log['created_at'] ?></small>
-        </li>
-      <?php endwhile; ?>
-    </ul>
-  </div>
-</div>
-
-<!-- 🔍 Filters -->
-<div class="card mt-5 mb-5 border-1">
-  <div class="card-header bg-light d-flex justify-content-between align-items-center">
-    <strong>🔍 Filter Data</strong>
-    <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#adminFilters">Toggle</button>
-  </div>
-  <div class="collapse" id="adminFilters">
-    <div class="card-body">
-      <form method="GET" class="row g-3">
-        <div class="col-md-4">
-          <label for="search" class="form-label">Search</label>
-          <input type="text" name="search" class="form-control" value="<?= htmlspecialchars($search) ?>">
-        </div>
-        <div class="col-md-3">
-          <label>From</label>
-          <input type="date" name="from" class="form-control" value="<?= $from ?>">
-        </div>
-        <div class="col-md-3">
-          <label>To</label>
-          <input type="date" name="to" class="form-control" value="<?= $to ?>">
-        </div>
-        <div class="col-md-2 d-flex align-items-end">
-          <button type="submit" class="btn btn-primary w-100">Apply</button>
-        </div>
-      </form>
+    <button onclick="printLogs()" class="btn btn-sm btn-outline-dark mb-3 float-end">🖨️ Print Logs</button>
+    <div id="logsTable">
+      <ul class="list-group">
+        <?php while ($log = $security_logs->fetch_assoc()): ?>
+          <li class="list-group-item">
+            <?= htmlspecialchars($log['name']) ?> - <?= htmlspecialchars($log['action']) ?>
+            <small class="float-end text-muted"><?= $log['created_at'] ?></small>
+          </li>
+        <?php endwhile; ?>
+      </ul>
     </div>
   </div>
 </div>
 
-<!-- Chart JS -->
+<!-- Chart Script -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-const ctx = document.getElementById('adminChart').getContext('2d');
-new Chart(ctx, {
+new Chart(document.getElementById('adminChart'), {
   type: 'doughnut',
   data: {
     labels: ['Learners', 'Instructors', 'Courses'],
     datasets: [{
       data: [<?= $learner_count ?>, <?= $instructor_count ?>, <?= $course_count ?>],
-      backgroundColor: ['#3498db', '#9b59b6', '#f1c40f'],
-      borderWidth: 1
+      backgroundColor: ['#3498db', '#9b59b6', '#f1c40f']
     }]
   },
   options: {
@@ -587,8 +559,20 @@ new Chart(ctx, {
     }
   }
 });
+
+function printLogs() {
+  const content = document.getElementById('logsTable').innerHTML;
+  const printWin = window.open('', '', 'width=800,height=600');
+  printWin.document.write('<html><head><title>Logs</title></head><body>');
+  printWin.document.write('<h3>Activity Logs</h3>');
+  printWin.document.write(content);
+  printWin.document.write('</body></html>');
+  printWin.document.close();
+  printWin.print();
+}
 </script>
 <?php endif; ?>
+
 
 
 
