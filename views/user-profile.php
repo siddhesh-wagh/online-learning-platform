@@ -12,7 +12,7 @@ $stmt->execute();
 $user = $stmt->get_result()->fetch_assoc();
 
 // ✅ Log profile page view
-logAction($user_id, "Viewed profile page");
+logAction($conn, $user_id, "Viewed profile page");
 
 $msg = "";
 
@@ -37,7 +37,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
     $stmt->bind_param("sssi", $new_name, $new_bio, $upload_path, $user_id);
     if ($stmt->execute()) {
         $_SESSION['name'] = $new_name;
-        logAction($user_id, "Updated profile info"); // ✅ Log update
+
+        // ✅ Log profile update
+        logAction($conn, $user_id, "Updated profile info");
+
         header("Location: user-profile.php");
         exit;
     }
@@ -58,13 +61,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['change_pass'])) {
         $up = $conn->prepare("UPDATE users SET password = ? WHERE id = ?");
         $up->bind_param("si", $new_hashed, $user_id);
         $up->execute();
-        logAction($user_id, "Changed password"); // ✅ Log password change
+
+        // ✅ Log password change
+        logAction($conn, $user_id, "Changed password");
+
         $msg = "<div class='alert alert-success'>✅ Password updated!</div>";
     } else {
         $msg = "<div class='alert alert-danger'>❌ Incorrect current password.</div>";
     }
 }
 ?>
+
 
 <!DOCTYPE html>
 <html>
