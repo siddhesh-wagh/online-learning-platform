@@ -1,6 +1,7 @@
 <?php
 include '../includes/auth.php';
 include '../db-config.php';
+include '../includes/functions.php';
 
 if ($_SESSION['role'] !== 'learner') {
     echo "Access denied.";
@@ -14,8 +15,9 @@ if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
 
 $course_id = (int) $_GET['id'];
 $user_id = $_SESSION['user_id'];
+$current_percent = 0;
 
-// Fetch course details
+// Fetch course
 $stmt = $conn->prepare("SELECT c.title, c.description, c.file_path, c.instructor_id, u.name AS instructor_name, u.email AS instructor_email
                         FROM courses c
                         JOIN users u ON c.instructor_id = u.id
@@ -25,16 +27,15 @@ $stmt->execute();
 $course = $stmt->get_result()->fetch_assoc();
 if (!$course) { echo "Course not found."; exit; }
 
-// ⏱️ Update last accessed timestamp in course_progress
-$track_stmt = $conn->prepare("
-  INSERT INTO course_progress (user_id, course_id, progress_percent, updated_at)
-  VALUES (?, ?, 0, NOW())
-  ON DUPLICATE KEY UPDATE updated_at = NOW()
-");
+// Track access
+$track_stmt = $conn->prepare("INSERT INTO course_progress (user_id, course_id, progress_percent, updated_at)
+                              VALUES (?, ?, 0, NOW())
+                              ON DUPLICATE KEY UPDATE updated_at = NOW()");
 $track_stmt->bind_param("ii", $user_id, $course_id);
 $track_stmt->execute();
+logAction($conn, $user_id, "Accessed course: " . $course['title']);
 
-// Handle progress update
+// Handle progress update and comments
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
     if (isset($_POST['update_progress'])) {
         $percent = (int) $_POST['progress_percent'];
@@ -43,19 +44,25 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                                     WHERE user_id = ? AND course_id = ?");
             $stmt->bind_param("iii", $percent, $user_id, $course_id);
             $stmt->execute();
+            $current_percent = $percent;
+            logAction($conn, $user_id, "Updated progress to $percent% on course: " . $course['title']);
         }
     } elseif (isset($_POST['reset_progress'])) {
-        $stmt = $conn->prepare("UPDATE course_progress SET progress_percent = 0, updated_at = NOW() 
+        $stmt = $conn->prepare("UPDATE course_progress SET progress_percent = 0, updated_at = NOW()
                                 WHERE user_id = ? AND course_id = ?");
         $stmt->bind_param("ii", $user_id, $course_id);
         $stmt->execute();
+        $current_percent = 0;
+        logAction($conn, $user_id, "Reset progress for course: " . $course['title']);
     } elseif (isset($_POST['comment'])) {
         $comment = trim($_POST['comment']);
         if (!empty($comment)) {
             $stmt = $conn->prepare("INSERT INTO comments (course_id, user_id, content) VALUES (?, ?, ?)");
             $stmt->bind_param("iis", $course_id, $user_id, $comment);
             $stmt->execute();
+            logAction($conn, $user_id, "Commented on course: " . $course['title']);
 
+            // Notify instructor
             $notif_stmt = $conn->prepare("INSERT INTO notifications (user_id, message) VALUES (?, ?)");
             $message = $_SESSION['name'] . " commented on your course: " . $course['title'];
             $notif_stmt->bind_param("is", $course['instructor_id'], $message);
@@ -79,9 +86,13 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 $progress_stmt = $conn->prepare("SELECT progress_percent FROM course_progress WHERE user_id = ? AND course_id = ?");
 $progress_stmt->bind_param("ii", $user_id, $course_id);
 $progress_stmt->execute();
-$current_percent = $progress_stmt->get_result()->fetch_assoc()['progress_percent'] ?? 0;
+$progress_result = $progress_stmt->get_result();
+if ($progress_row = $progress_result->fetch_assoc()) {
+    $current_percent = $progress_row['progress_percent'];
+}
 
-// Pagination setup
+// Pagination for comments
+$comments_result = null;
 $comments_per_page = 5;
 $page = max(1, (int)($_GET['page'] ?? 1));
 $offset = ($page - 1) * $comments_per_page;
@@ -92,8 +103,7 @@ $count_stmt->execute();
 $total_comments = $count_stmt->get_result()->fetch_assoc()['total'];
 $total_pages = ceil($total_comments / $comments_per_page);
 
-// Fetch comments
-$stmt = $conn->prepare("
+$comments_stmt = $conn->prepare("
     SELECT c.id AS comment_id, c.content, c.created_at, u.name 
     FROM comments c 
     JOIN users u ON c.user_id = u.id 
@@ -101,9 +111,9 @@ $stmt = $conn->prepare("
     ORDER BY c.created_at DESC 
     LIMIT ? OFFSET ?
 ");
-$stmt->bind_param("iii", $course_id, $comments_per_page, $offset);
-$stmt->execute();
-$comments_result = $stmt->get_result();
+$comments_stmt->bind_param("iii", $course_id, $comments_per_page, $offset);
+$comments_stmt->execute();
+$comments_result = $comments_stmt->get_result();
 ?>
 
 <!DOCTYPE html>
@@ -142,15 +152,19 @@ $comments_result = $stmt->get_result();
         </div>
         <div class="col-md-4 border-start p-3">
           <h5 class="mb-3">📥 Download</h5>
-          <a href="<?= $file_url ?>" class="btn btn-success w-100 mb-2">Download</a>
-          <div class="mb-3 text-muted">
+          <?php
+              // Sanitize title for filename (remove spaces/special chars)
+              $safe_title = preg_replace("/[^a-zA-Z0-9]/", "", $course['title']);
+              $download_name = "CourseMaterial_" . $course_id . "_" . $safe_title . "." . $file_ext;
+          ?>
+              <a href="<?= $file_url ?>" class="btn btn-success w-100 mb-2" download="<?= $download_name ?>">Download</a>          <div class="mb-3 text-muted">
             Type: <?= strtoupper($file_ext) ?><br>
             Size: <?= round(filesize($file_url) / 1024 / 1024, 2) ?> MB
           </div>
           <hr>
           <h6>📊 Course Progress</h6>
           <div class="progress mb-2" style="height: 20px;">
-            <div class="progress-bar bg-<?= $current_percent === 100 ? 'success' : 'info' ?>" 
+            <div class="progress-bar bg-<?= $current_percent == 100 ? 'success' : 'info' ?>" 
                  style="width: <?= $current_percent ?>%;">
               <?= $current_percent ?>%
             </div>
