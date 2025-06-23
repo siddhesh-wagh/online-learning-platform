@@ -369,91 +369,108 @@ function timeAgo($datetime) {
 
 <?php elseif ($role === 'admin'): ?>
 <?php
+include '../includes/functions.php'; // if not already included
 
+// Initial setup
 $search = $_GET['search'] ?? '';
 $from = $_GET['from'] ?? '';
 $to = $_GET['to'] ?? '';
-
-// Escape for safety
 $search = $conn->real_escape_string($search);
 $from = $conn->real_escape_string($from);
 $to = $conn->real_escape_string($to);
 
-// Build WHERE conditions
+// Conditions
 $conditions = [];
-if ($search) {
-    $conditions[] = "(u.name LIKE '%$search%' OR u.email LIKE '%$search%' OR c.title LIKE '%$search%')";
-}
+if ($search) $conditions[] = "(u.name LIKE '%$search%' OR u.email LIKE '%$search%' OR c.title LIKE '%$search%')";
 if ($from) $conditions[] = "DATE(u.created_at) >= '$from'";
 if ($to) $conditions[] = "DATE(u.created_at) <= '$to'";
-
 $where_users = count($conditions) > 0 ? 'WHERE ' . implode(' AND ', $conditions) : '';
 $where_courses = $search ? "WHERE title LIKE '%$search%'" : '';
 
+// Today & Week
 $today = date('Y-m-d');
 $last7 = date('Y-m-d', strtotime('-7 days'));
-$search = $_GET['search'] ?? '';
-$from = $_GET['from'] ?? '';
-$to = $_GET['to'] ?? '';
 
-$user_count = $conn->query("SELECT COUNT(*) AS total FROM users")->fetch_assoc()['total'];
-$course_count = $conn->query("SELECT COUNT(*) AS total FROM courses")->fetch_assoc()['total'];
-$instructor_count = $conn->query("SELECT COUNT(*) AS total FROM users WHERE role = 'instructor'")->fetch_assoc()['total'];
-$learner_count = $conn->query("SELECT COUNT(*) AS total FROM users WHERE role = 'learner'")->fetch_assoc()['total'];
-$pending_count = $conn->query("SELECT COUNT(*) AS total FROM users WHERE role = 'instructor' AND is_approved = 0")->fetch_assoc()['total'];
+$user_count        = $conn->query("SELECT COUNT(*) AS total FROM users")->fetch_assoc()['total'];
+$instructor_count  = $conn->query("SELECT COUNT(*) AS total FROM users WHERE role = 'instructor'")->fetch_assoc()['total'];
+$learner_count     = $conn->query("SELECT COUNT(*) AS total FROM users WHERE role = 'learner'")->fetch_assoc()['total'];
+$pending_count     = $conn->query("SELECT COUNT(*) AS total FROM users WHERE role = 'instructor' AND is_approved = 0")->fetch_assoc()['total'];
 
-$today_users = $conn->query("SELECT COUNT(*) AS total FROM users WHERE DATE(created_at) = '$today'")->fetch_assoc()['total'];
-$week_users = $conn->query("SELECT COUNT(*) AS total FROM users WHERE DATE(created_at) >= '$last7'")->fetch_assoc()['total'];
-$today_courses = $conn->query("SELECT COUNT(*) AS total FROM courses WHERE DATE(created_at) = '$today'")->fetch_assoc()['total'];
-$week_courses = $conn->query("SELECT COUNT(*) AS total FROM courses WHERE DATE(created_at) >= '$last7'")->fetch_assoc()['total'];
-$today_comments = $conn->query("SELECT COUNT(*) AS total FROM comments WHERE DATE(created_at) = '$today'")->fetch_assoc()['total'];
-$week_comments = $conn->query("SELECT COUNT(*) AS total FROM comments WHERE DATE(created_at) >= '$last7'")->fetch_assoc()['total'];
+$course_count      = $conn->query("SELECT COUNT(*) AS total FROM courses")->fetch_assoc()['total'];
+$pdf_count         = $conn->query("SELECT COUNT(*) AS total FROM courses WHERE file_path LIKE '%.pdf'")->fetch_assoc()['total'];
+$video_count       = $conn->query("SELECT COUNT(*) AS total FROM courses WHERE file_path LIKE '%.mp4'")->fetch_assoc()['total'];
 
-// Filter queries
+$today_users       = $conn->query("SELECT COUNT(*) AS total FROM users WHERE DATE(created_at) = '$today'")->fetch_assoc()['total'];
+$week_users        = $conn->query("SELECT COUNT(*) AS total FROM users WHERE DATE(created_at) >= '$last7'")->fetch_assoc()['total'];
+$today_courses     = $conn->query("SELECT COUNT(*) AS total FROM courses WHERE DATE(created_at) = '$today'")->fetch_assoc()['total'];
+$week_courses      = $conn->query("SELECT COUNT(*) AS total FROM courses WHERE DATE(created_at) >= '$last7'")->fetch_assoc()['total'];
+$today_comments    = $conn->query("SELECT COUNT(*) AS total FROM comments WHERE DATE(created_at) = '$today'")->fetch_assoc()['total'];
+$week_comments     = $conn->query("SELECT COUNT(*) AS total FROM comments WHERE DATE(created_at) >= '$last7'")->fetch_assoc()['total'];
+
+// Filtered data
 $where_user = $search ? "WHERE name LIKE '%$search%' OR email LIKE '%$search%'" : "";
 $where_course = $search ? "WHERE title LIKE '%$search%'" : "";
-
 if ($from && $to) {
-    $where_user = "WHERE DATE(created_at) BETWEEN '$from' AND '$to'";
-    $where_course = "WHERE DATE(created_at) BETWEEN '$from' AND '$to'";
+  $where_user = "WHERE DATE(created_at) BETWEEN '$from' AND '$to'";
+  $where_course = "WHERE DATE(created_at) BETWEEN '$from' AND '$to'";
 }
 
-$recent_users = $conn->query("SELECT name, email, created_at FROM users $where_user ORDER BY created_at DESC LIMIT 5");
-$recent_courses = $conn->query("SELECT title, created_at FROM courses $where_course ORDER BY created_at DESC LIMIT 5");
+$recent_users    = $conn->query("SELECT name, email, created_at FROM users $where_user ORDER BY created_at DESC LIMIT 5");
+$recent_courses  = $conn->query("SELECT title, created_at FROM courses $where_course ORDER BY created_at DESC LIMIT 5");
 $recent_comments = $conn->query("SELECT c.content, c.created_at, u.name, co.title 
                                   FROM comments c 
                                   JOIN users u ON c.user_id = u.id 
                                   JOIN courses co ON c.course_id = co.id 
                                   ORDER BY c.created_at DESC LIMIT 5");
-$security_logs = $conn->query("SELECT l.action, l.created_at, u.name 
+$security_logs   = $conn->query("SELECT l.action, l.created_at, u.name 
                                 FROM logs l 
                                 JOIN users u ON l.user_id = u.id 
                                 ORDER BY l.created_at DESC LIMIT 5");
 ?>
 
-<!-- 📊 Stat Cards -->
-<div class="row">
-  <?php foreach ([['Total Users', $user_count, 'primary'], ['Total Courses', $course_count, 'success'], ['Instructors', $instructor_count, 'info'], ['Pending Approvals', $pending_count, 'danger']] as [$title, $count, $color]): ?>
-    <div class="col-md-3">
-      <div class="card border-<?= $color ?>">
+<!-- 📊 Separate Stat Cards -->
+<div class="row text-center mb-4">
+  <?php foreach ([
+    ['title' => 'Total Users', 'count' => $user_count, 'color' => 'primary'],
+    ['title' => 'Instructors', 'count' => $instructor_count, 'color' => 'info'],
+    ['title' => 'Learners', 'count' => $learner_count, 'color' => 'secondary'],
+    ['title' => 'Courses', 'count' => $course_count, 'color' => 'success'],
+    ['title' => 'PDF Uploads', 'count' => $pdf_count, 'color' => 'warning'],
+    ['title' => 'Video Uploads', 'count' => $video_count, 'color' => 'dark'],
+    ['title' => 'Pending Approvals', 'count' => $pending_count, 'color' => 'danger'],
+  ] as $item): ?>
+    <div class="col-md-3 mb-3">
+      <div class="card border-<?= $item['color'] ?>">
         <div class="card-body">
-          <h6><?= $title ?></h6>
-          <p class="fs-4"><?= $count ?></p>
+          <h6 class="text-<?= $item['color'] ?>"><?= $item['title'] ?></h6>
+          <p class="fs-4"><?= $item['count'] ?></p>
         </div>
       </div>
     </div>
   <?php endforeach; ?>
 </div>
 
-<!-- 🗓 Today & Week Overview -->
-<div class="row mt-4">
+<!-- 📈 Chart Below Cards -->
+<div class="row mb-4">
+  <div class="col-md-6 mx-auto">
+    <div class="card">
+      <div class="card-header bg-secondary text-white text-center">📊 User Distribution</div>
+      <div class="card-body text-center">
+        <canvas id="adminChart" height="200"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 🗓️ Summary Overview -->
+<div class="row mb-4">
   <div class="col-md-6">
     <div class="card border-success">
       <div class="card-header bg-success text-white">📅 Today</div>
       <div class="card-body">
         <p>👤 New Users: <strong><?= $today_users ?></strong></p>
         <p>📘 New Courses: <strong><?= $today_courses ?></strong></p>
-        <p>💬 New Comments: <strong><?= $today_comments ?></strong></p>
+        <p>💬 Comments: <strong><?= $today_comments ?></strong></p>
       </div>
     </div>
   </div>
@@ -469,35 +486,37 @@ $security_logs = $conn->query("SELECT l.action, l.created_at, u.name
   </div>
 </div>
 
-<!-- 📈 Chart & ⚡ Quick Actions -->
-<div class="row mt-4">
-  <div class="col-md-6">
-    <div class="card">
-      <div class="card-header bg-secondary text-white">📊 User & Course Chart</div>
-      <div class="card-body">
-        <canvas id="adminChart" height="200"></canvas>
-      </div>
-    </div>
-  </div>
-  <div class="col-md-6">
-    <div class="card">
-      <div class="card-header bg-dark text-white">⚡ Quick Actions</div>
-      <div class="card-body d-grid gap-2">
-        <a href="../admin/manage-users.php" class="btn btn-outline-primary">🔐 Manage Users</a>
-        <a href="course-list.php?admin=1" class="btn btn-outline-success">📚 View All Courses</a>
-        <a href="../auth/register.php" class="btn btn-outline-secondary">➕ Register New User</a>
-        <form method="POST" action="../admin/export-users.php"><button class="btn btn-outline-dark">⬇️ Export Users CSV</button></form>
-        <form method="POST" action="../admin/export-courses.php"><button class="btn btn-outline-dark">⬇️ Export Courses CSV</button></form>
-      </div>
-    </div>
-  </div>
-</div>
+<!-- 🧭 Tab Navigation: Users, Courses, Comments, Logs -->
+<ul class="nav nav-tabs mt-4" id="adminTabs" role="tablist">
+  <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tabUsers">👥 Users</a></li>
+  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabCourses">📚 Courses</a></li>
+  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabComments">💬 Comments</a></li>
+  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabLogs">🔐 Logs</a></li>
+</ul>
 
-<!-- 💬 Recent Comments -->
-<div class="card mt-4">
-  <div class="card-header bg-info text-white">💬 Recent Comments</div>
-  <ul class="list-group list-group-flush">
-    <?php if ($recent_comments->num_rows): ?>
+<div class="tab-content p-3 border border-top-0">
+  <div class="tab-pane fade show active" id="tabUsers">
+    <ul class="list-group">
+      <?php while ($u = $recent_users->fetch_assoc()): ?>
+        <li class="list-group-item">
+          <?= htmlspecialchars($u['name']) ?> - <?= htmlspecialchars($u['email']) ?>
+          <small class="float-end text-muted"><?= $u['created_at'] ?></small>
+        </li>
+      <?php endwhile; ?>
+    </ul>
+  </div>
+  <div class="tab-pane fade" id="tabCourses">
+    <ul class="list-group">
+      <?php while ($c = $recent_courses->fetch_assoc()): ?>
+        <li class="list-group-item">
+          <?= htmlspecialchars($c['title']) ?>
+          <small class="float-end text-muted"><?= $c['created_at'] ?></small>
+        </li>
+      <?php endwhile; ?>
+    </ul>
+  </div>
+  <div class="tab-pane fade" id="tabComments">
+    <ul class="list-group">
       <?php while ($com = $recent_comments->fetch_assoc()): ?>
         <li class="list-group-item">
           <?= htmlspecialchars($com['name']) ?> on <strong><?= htmlspecialchars($com['title']) ?></strong><br>
@@ -505,109 +524,50 @@ $security_logs = $conn->query("SELECT l.action, l.created_at, u.name
           <small class="text-muted float-end"><?= $com['created_at'] ?></small>
         </li>
       <?php endwhile; ?>
-    <?php else: ?>
-      <li class="list-group-item text-muted">No recent comments.</li>
-    <?php endif; ?>
-  </ul>
-</div>
-
-<!-- 🔐 Security Logs -->
-<div class="card mt-4">
-  <div class="card-header bg-dark text-white">🔐 Security Logs</div>
-  <ul class="list-group list-group-flush">
-    <?php if ($security_logs->num_rows): ?>
+    </ul>
+  </div>
+  <div class="tab-pane fade" id="tabLogs">
+    <ul class="list-group">
       <?php while ($log = $security_logs->fetch_assoc()): ?>
         <li class="list-group-item">
           <?= htmlspecialchars($log['name']) ?> - <?= $log['action'] ?>
-          <small class="text-muted float-end"><?= $log['created_at'] ?></small>
+          <small class="float-end text-muted"><?= $log['created_at'] ?></small>
         </li>
       <?php endwhile; ?>
-    <?php else: ?>
-      <li class="list-group-item text-muted">No logs found.</li>
-    <?php endif; ?>
-  </ul>
+    </ul>
+  </div>
 </div>
 
-<!-- 🔍 Filter Controls (Collapsed) -->
+<!-- 🔍 Filters -->
 <div class="card mt-5 mb-5 border-1">
-  <div class="card-header d-flex justify-content-between align-items-center bg-light">
+  <div class="card-header bg-light d-flex justify-content-between align-items-center">
     <strong>🔍 Filter Data</strong>
     <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#adminFilters">Toggle</button>
   </div>
-  <div class="collapse show" id="adminFilters">
+  <div class="collapse" id="adminFilters">
     <div class="card-body">
       <form method="GET" class="row g-3">
         <div class="col-md-4">
-          <label for="search" class="form-label">Search (User / Email / Course)</label>
-          <input type="text" name="search" id="search" class="form-control" value="<?= htmlspecialchars($search) ?>">
+          <label for="search" class="form-label">Search</label>
+          <input type="text" name="search" class="form-control" value="<?= htmlspecialchars($search) ?>">
         </div>
         <div class="col-md-3">
-          <label for="from" class="form-label">Start Date</label>
-          <input type="date" name="from" id="from" class="form-control" value="<?= $from ?>">
+          <label>From</label>
+          <input type="date" name="from" class="form-control" value="<?= $from ?>">
         </div>
         <div class="col-md-3">
-          <label for="to" class="form-label">End Date</label>
-          <input type="date" name="to" id="to" class="form-control" value="<?= $to ?>">
+          <label>To</label>
+          <input type="date" name="to" class="form-control" value="<?= $to ?>">
         </div>
         <div class="col-md-2 d-flex align-items-end">
-          <div class="d-flex w-100 gap-2">
-            <button type="submit" class="btn btn-primary w-50">Apply</button>
-            <a href="dashboard.php" class="btn btn-outline-secondary w-50">Reset</a>
-          </div>
+          <button type="submit" class="btn btn-primary w-100">Apply</button>
         </div>
       </form>
     </div>
   </div>
 </div>
 
-<!-- 🧑‍🤝‍🧑 & 📘 Recent -->
-<div class="row mt-4">
-  <div class="col-md-6">
-    <div class="card">
-      <div class="card-header bg-dark text-white d-flex justify-content-between">
-        🧑‍🤝‍🧑 Recent Users <?= $search || $from || $to ? '(Filtered)' : '' ?>
-        <a href="../admin/manage-users.php" class="btn btn-sm btn-light">View All</a>
-      </div>
-      <ul class="list-group list-group-flush">
-        <?php if ($recent_users->num_rows): ?>
-          <?php while ($u = $recent_users->fetch_assoc()): ?>
-            <li class="list-group-item">
-              <?= htmlspecialchars($u['name']) ?> - <?= htmlspecialchars($u['email']) ?>
-              <small class="text-muted float-end"><?= $u['created_at'] ?></small>
-            </li>
-          <?php endwhile; ?>
-        <?php else: ?>
-          <li class="list-group-item text-muted">No matching users found.</li>
-        <?php endif; ?>
-      </ul>
-    </div>
-  </div>
-
-  <div class="col-md-6">
-    <div class="card">
-      <div class="card-header bg-primary text-white d-flex justify-content-between">
-        📘 Recent Courses <?= $search || $from || $to ? '(Filtered)' : '' ?>
-        <a href="course-list.php?admin=1" class="btn btn-sm btn-light">View All</a>
-      </div>
-      <ul class="list-group list-group-flush">
-        <?php if ($recent_courses->num_rows): ?>
-          <?php while ($c = $recent_courses->fetch_assoc()): ?>
-            <li class="list-group-item">
-              <?= htmlspecialchars($c['title']) ?>
-              <small class="text-muted float-end"><?= $c['created_at'] ?></small>
-            </li>
-          <?php endwhile; ?>
-        <?php else: ?>
-          <li class="list-group-item text-muted">No matching courses found.</li>
-        <?php endif; ?>
-      </ul>
-    </div>
-  </div>
-</div>
-
-
-
-<!-- 📊 Chart Script -->
+<!-- Chart JS -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 const ctx = document.getElementById('adminChart').getContext('2d');
@@ -618,12 +578,18 @@ new Chart(ctx, {
     datasets: [{
       data: [<?= $learner_count ?>, <?= $instructor_count ?>, <?= $course_count ?>],
       backgroundColor: ['#3498db', '#9b59b6', '#f1c40f'],
+      borderWidth: 1
     }]
+  },
+  options: {
+    plugins: {
+      legend: { position: 'bottom' }
+    }
   }
 });
 </script>
-
 <?php endif; ?>
+
 
 
 
