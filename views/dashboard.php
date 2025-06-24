@@ -400,6 +400,8 @@ $course_count     = $conn->query("SELECT COUNT(*) AS total FROM courses")->fetch
 $pdf_count        = $conn->query("SELECT COUNT(*) AS total FROM courses WHERE file_path LIKE '%.pdf'")->fetch_assoc()['total'];
 $video_count      = $conn->query("SELECT COUNT(*) AS total FROM courses WHERE file_path LIKE '%.mp4'")->fetch_assoc()['total'];
 
+$total_comments = $conn->query("SELECT COUNT(*) AS total FROM comments")->fetch_assoc()['total'];
+
 $today_users      = $conn->query("SELECT COUNT(*) AS total FROM users WHERE DATE(created_at) = '$today'")->fetch_assoc()['total'];
 $week_users       = $conn->query("SELECT COUNT(*) AS total FROM users WHERE DATE(created_at) >= '$last7'")->fetch_assoc()['total'];
 $today_courses    = $conn->query("SELECT COUNT(*) AS total FROM courses WHERE DATE(created_at) = '$today'")->fetch_assoc()['total'];
@@ -437,6 +439,7 @@ $security_logs   = $conn->query("SELECT l.action, l.created_at, u.name
     ['Courses', $course_count, 'success'],
     ['PDF Uploads', $pdf_count, 'warning'],
     ['Video Uploads', $video_count, 'dark'],
+    ['🗨️ Total Comments', $total_comments, 'secondary'],
     ['Pending Approvals', $pending_count, 'danger']
   ] as [$label, $count, $color]): ?>
   <div class="col-md-3 mb-3">
@@ -527,18 +530,38 @@ $security_logs   = $conn->query("SELECT l.action, l.created_at, u.name
     </ul>
   </div>
   <div class="tab-pane fade" id="tabLogs">
-    <button onclick="printLogs()" class="btn btn-sm btn-outline-dark mb-3 float-end">🖨️ Print Logs</button>
-    <div id="logsTable">
-      <ul class="list-group">
-        <?php while ($log = $security_logs->fetch_assoc()): ?>
-          <li class="list-group-item">
-            <?= htmlspecialchars($log['name']) ?> - <?= htmlspecialchars($log['action']) ?>
-            <small class="float-end text-muted"><?= $log['created_at'] ?></small>
-          </li>
-        <?php endwhile; ?>
-      </ul>
-    </div>
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h5 class="mb-0">🔐 Recent Logs</h5>
+    <button onclick="printLogs()" class="btn btn-sm btn-outline-dark">🖨️ Print Logs</button>
   </div>
+
+  <div id="logsTable" class="table-responsive">
+    <table class="table table-bordered table-sm align-middle">
+      <thead class="table-light">
+        <tr>
+          <th>User</th>
+          <th>Action</th>
+          <th>Date/Time</th>
+        </tr>
+      </thead>
+      <tbody>
+        <?php if ($security_logs->num_rows): ?>
+          <?php mysqli_data_seek($security_logs, 0); ?>
+          <?php while ($log = $security_logs->fetch_assoc()): ?>
+            <tr>
+              <td><?= htmlspecialchars($log['name']) ?></td>
+              <td><?= htmlspecialchars($log['action']) ?></td>
+              <td class="text-muted"><?= $log['created_at'] ?></td>
+            </tr>
+          <?php endwhile; ?>
+        <?php else: ?>
+          <tr><td colspan="3" class="text-center text-muted">No logs found.</td></tr>
+        <?php endif; ?>
+      </tbody>
+    </table>
+  </div>
+</div>
+
 </div>
 
 <!-- Chart Script -->
@@ -573,11 +596,10 @@ function printLogs() {
 </script>
 <?php endif; ?>
 
-
-
-
-
-
 </div>
+
+<!-- REQUIRED for Bootstrap Tabs to work -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
 </body>
 </html>
