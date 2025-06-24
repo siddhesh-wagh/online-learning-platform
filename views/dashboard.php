@@ -558,21 +558,24 @@ $security_logs = $conn->query("
 
 <!-- Filters for Logs -->
 <form id="logFilterForm" class="row g-2 mb-3">
-  <div class="col-md-2"><input type="date" name="log_from" class="form-control"></div>
-  <div class="col-md-2"><input type="date" name="log_to" class="form-control"></div>
+  <div class="col-md-2"><input type="date" name="log_from" class="form-control" value="<?= $log_from ?>"></div>
+  <div class="col-md-2"><input type="date" name="log_to" class="form-control" value="<?= $log_to ?>"></div>
   <div class="col-md-2">
     <select name="log_role" class="form-select">
       <option value="">All Roles</option>
-      <option value="admin">Admin</option>
-      <option value="instructor">Instructor</option>
-      <option value="learner">Learner</option>
+      <option value="admin" <?= $log_role === 'admin' ? 'selected' : '' ?>>Admin</option>
+      <option value="instructor" <?= $log_role === 'instructor' ? 'selected' : '' ?>>Instructor</option>
+      <option value="learner" <?= $log_role === 'learner' ? 'selected' : '' ?>>Learner</option>
     </select>
   </div>
-  <div class="col-md-3"><input type="text" name="log_action" class="form-control" placeholder="Search action..."></div>
-  <div class="col-md-3 d-grid">
-    <button type="submit" class="btn btn-outline-primary">Filter Logs</button>
+  <div class="col-md-3"><input type="text" name="log_action" class="form-control" placeholder="Search action..." value="<?= $log_action ?>"></div>
+  
+  <div class="col-md-3 d-flex gap-2">
+    <button type="submit" class="btn btn-outline-primary w-50">Filter Logs</button>
+    <button type="button" class="btn btn-outline-secondary w-50" id="clearLogsBtn">Clear</button>
   </div>
 </form>
+
 
 
 <!-- Logs Table & Print -->
@@ -647,9 +650,9 @@ function printLogs() {
   printWin.print();
 }
 
+// Submit via AJAX
 document.getElementById('logFilterForm').addEventListener('submit', function (e) {
-  e.preventDefault(); // Prevent page reload
-
+  e.preventDefault();
   const formData = new FormData(this);
   const params = new URLSearchParams(formData);
 
@@ -659,6 +662,18 @@ document.getElementById('logFilterForm').addEventListener('submit', function (e)
       document.getElementById('logsTable').innerHTML = data;
     });
 });
+
+// Clear filters and reload unfiltered logs
+document.getElementById('clearLogsBtn').addEventListener('click', function () {
+  document.getElementById('logFilterForm').reset(); // Reset form inputs
+
+  fetch('load-logs.php') // No filters
+    .then(res => res.text())
+    .then(data => {
+      document.getElementById('logsTable').innerHTML = data;
+    });
+});
+
 
 
 </script>
