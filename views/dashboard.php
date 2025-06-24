@@ -371,7 +371,7 @@ function timeAgo($datetime) {
 <?php
 include '../includes/functions.php';
 
-// Filters
+// General Filters
 $search = $_GET['search'] ?? '';
 $from   = $_GET['from'] ?? '';
 $to     = $_GET['to'] ?? '';
@@ -379,7 +379,7 @@ $search = $conn->real_escape_string($search);
 $from   = $conn->real_escape_string($from);
 $to     = $conn->real_escape_string($to);
 
-// SQL conditions
+// Query conditions
 $conditions = [];
 if ($search) $conditions[] = "(u.name LIKE '%$search%' OR u.email LIKE '%$search%' OR c.title LIKE '%$search%')";
 if ($from)   $conditions[] = "DATE(u.created_at) >= '$from'";
@@ -387,36 +387,34 @@ if ($to)     $conditions[] = "DATE(u.created_at) <= '$to'";
 $where_users   = count($conditions) > 0 ? 'WHERE ' . implode(' AND ', $conditions) : '';
 $where_courses = $search ? "WHERE title LIKE '%$search%'" : '';
 
-// Stats
+// Date Ranges
 $today = date('Y-m-d');
 $last7 = date('Y-m-d', strtotime('-7 days'));
 
+// Quick Stats
 $user_count       = $conn->query("SELECT COUNT(*) AS total FROM users")->fetch_assoc()['total'];
 $instructor_count = $conn->query("SELECT COUNT(*) AS total FROM users WHERE role = 'instructor'")->fetch_assoc()['total'];
 $learner_count    = $conn->query("SELECT COUNT(*) AS total FROM users WHERE role = 'learner'")->fetch_assoc()['total'];
 $pending_count    = $conn->query("SELECT COUNT(*) AS total FROM users WHERE role = 'instructor' AND is_approved = 0")->fetch_assoc()['total'];
-
 $course_count     = $conn->query("SELECT COUNT(*) AS total FROM courses")->fetch_assoc()['total'];
 $pdf_count        = $conn->query("SELECT COUNT(*) AS total FROM courses WHERE file_path LIKE '%.pdf'")->fetch_assoc()['total'];
 $video_count      = $conn->query("SELECT COUNT(*) AS total FROM courses WHERE file_path LIKE '%.mp4'")->fetch_assoc()['total'];
+$total_comments   = $conn->query("SELECT COUNT(*) AS total FROM comments")->fetch_assoc()['total'];
 
-$total_comments = $conn->query("SELECT COUNT(*) AS total FROM comments")->fetch_assoc()['total'];
+$today_users    = $conn->query("SELECT COUNT(*) AS total FROM users WHERE DATE(created_at) = '$today'")->fetch_assoc()['total'];
+$week_users     = $conn->query("SELECT COUNT(*) AS total FROM users WHERE DATE(created_at) >= '$last7'")->fetch_assoc()['total'];
+$today_courses  = $conn->query("SELECT COUNT(*) AS total FROM courses WHERE DATE(created_at) = '$today'")->fetch_assoc()['total'];
+$week_courses   = $conn->query("SELECT COUNT(*) AS total FROM courses WHERE DATE(created_at) >= '$last7'")->fetch_assoc()['total'];
+$today_comments = $conn->query("SELECT COUNT(*) AS total FROM comments WHERE DATE(created_at) = '$today'")->fetch_assoc()['total'];
+$week_comments  = $conn->query("SELECT COUNT(*) AS total FROM comments WHERE DATE(created_at) >= '$last7'")->fetch_assoc()['total'];
 
-$today_users      = $conn->query("SELECT COUNT(*) AS total FROM users WHERE DATE(created_at) = '$today'")->fetch_assoc()['total'];
-$week_users       = $conn->query("SELECT COUNT(*) AS total FROM users WHERE DATE(created_at) >= '$last7'")->fetch_assoc()['total'];
-$today_courses    = $conn->query("SELECT COUNT(*) AS total FROM courses WHERE DATE(created_at) = '$today'")->fetch_assoc()['total'];
-$week_courses     = $conn->query("SELECT COUNT(*) AS total FROM courses WHERE DATE(created_at) >= '$last7'")->fetch_assoc()['total'];
-$today_comments   = $conn->query("SELECT COUNT(*) AS total FROM comments WHERE DATE(created_at) = '$today'")->fetch_assoc()['total'];
-$week_comments    = $conn->query("SELECT COUNT(*) AS total FROM comments WHERE DATE(created_at) >= '$last7'")->fetch_assoc()['total'];
-
-// Recent activity
-$where_user = $search ? "WHERE name LIKE '%$search%' OR email LIKE '%$search%'" : "";
+// Lists
+$where_user   = $search ? "WHERE name LIKE '%$search%' OR email LIKE '%$search%'" : "";
 $where_course = $search ? "WHERE title LIKE '%$search%'" : "";
 if ($from && $to) {
   $where_user = "WHERE DATE(created_at) BETWEEN '$from' AND '$to'";
   $where_course = "WHERE DATE(created_at) BETWEEN '$from' AND '$to'";
 }
-
 $recent_users    = $conn->query("SELECT name, email, created_at FROM users $where_user ORDER BY created_at DESC LIMIT 5");
 $recent_courses  = $conn->query("SELECT title, created_at FROM courses $where_course ORDER BY created_at DESC LIMIT 5");
 $recent_comments = $conn->query("SELECT c.content, c.created_at, u.name, co.title 
@@ -424,13 +422,31 @@ $recent_comments = $conn->query("SELECT c.content, c.created_at, u.name, co.titl
                                  JOIN users u ON c.user_id = u.id 
                                  JOIN courses co ON c.course_id = co.id 
                                  ORDER BY c.created_at DESC LIMIT 5");
-$security_logs = $conn->query("SELECT l.action, l.created_at, u.name, u.role 
-                                FROM logs l 
-                                JOIN users u ON l.user_id = u.id 
-                                ORDER BY l.created_at DESC LIMIT 50");
+
+// Logs Filter
+$log_from = $_GET['log_from'] ?? '';
+$log_to   = $_GET['log_to'] ?? '';
+$log_role = $_GET['log_role'] ?? '';
+$log_action = $_GET['log_action'] ?? '';
+$log_conditions = [];
+
+if ($log_from)     $log_conditions[] = "DATE(l.created_at) >= '$log_from'";
+if ($log_to)       $log_conditions[] = "DATE(l.created_at) <= '$log_to'";
+if ($log_role)     $log_conditions[] = "u.role = '$log_role'";
+if ($log_action)   $log_conditions[] = "l.action LIKE '%$log_action%'";
+$where_log = count($log_conditions) > 0 ? "WHERE " . implode(" AND ", $log_conditions) : "";
+
+$security_logs = $conn->query("
+  SELECT l.action, l.created_at, u.name, u.role 
+  FROM logs l 
+  JOIN users u ON l.user_id = u.id 
+  $where_log 
+  ORDER BY l.created_at DESC
+  LIMIT 100
+");
 ?>
 
-<!-- 📊 Stat Cards -->
+<!-- 📊 Cards -->
 <div class="row text-center mb-4">
   <?php foreach ([
     ['Total Users', $user_count, 'primary'],
@@ -442,18 +458,18 @@ $security_logs = $conn->query("SELECT l.action, l.created_at, u.name, u.role
     ['🗨️ Total Comments', $total_comments, 'secondary'],
     ['Pending Approvals', $pending_count, 'danger']
   ] as [$label, $count, $color]): ?>
-  <div class="col-md-3 mb-3">
-    <div class="card border-<?= $color ?>">
-      <div class="card-body">
-        <h6 class="text-<?= $color ?>"><?= $label ?></h6>
-        <p class="fs-4"><?= $count ?></p>
+    <div class="col-md-3 mb-3">
+      <div class="card border-<?= $color ?>">
+        <div class="card-body">
+          <h6 class="text-<?= $color ?>"><?= $label ?></h6>
+          <p class="fs-4"><?= $count ?></p>
+        </div>
       </div>
     </div>
-  </div>
   <?php endforeach; ?>
 </div>
 
-<!-- 📈 User Chart -->
+<!-- 📈 Chart -->
 <div class="row mb-4">
   <div class="col-md-6 mx-auto">
     <div class="card">
@@ -489,15 +505,16 @@ $security_logs = $conn->query("SELECT l.action, l.created_at, u.name, u.role
   </div>
 </div>
 
-<!-- 🧭 Tabs for Users, Courses, Comments, Logs -->
+<!-- 🧭 Tabs (No Logs Tab Now) -->
 <ul class="nav nav-tabs mt-4" role="tablist">
   <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tabUsers">👥 Users</a></li>
   <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabCourses">📚 Courses</a></li>
   <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabComments">💬 Comments</a></li>
-  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabLogs">🔐 Logs</a></li>
 </ul>
 
+<!-- 📁 Tab Content -->
 <div class="tab-content p-3 border border-top-0">
+  <!-- Users -->
   <div class="tab-pane fade show active" id="tabUsers">
     <ul class="list-group">
       <?php while ($u = $recent_users->fetch_assoc()): ?>
@@ -508,6 +525,8 @@ $security_logs = $conn->query("SELECT l.action, l.created_at, u.name, u.role
       <?php endwhile; ?>
     </ul>
   </div>
+
+  <!-- Courses -->
   <div class="tab-pane fade" id="tabCourses">
     <ul class="list-group">
       <?php while ($c = $recent_courses->fetch_assoc()): ?>
@@ -518,6 +537,8 @@ $security_logs = $conn->query("SELECT l.action, l.created_at, u.name, u.role
       <?php endwhile; ?>
     </ul>
   </div>
+
+  <!-- Comments -->
   <div class="tab-pane fade" id="tabComments">
     <ul class="list-group">
       <?php while ($com = $recent_comments->fetch_assoc()): ?>
@@ -529,52 +550,62 @@ $security_logs = $conn->query("SELECT l.action, l.created_at, u.name, u.role
       <?php endwhile; ?>
     </ul>
   </div>
-  <div class="tab-pane fade" id="tabLogs">
-  <div class="d-flex justify-content-between align-items-center mb-3">
-    <h5 class="mb-0">🔐 Recent Logs</h5>
-    <button onclick="printLogs()" class="btn btn-sm btn-outline-dark">🖨️ Print Logs</button>
+</div>
+
+<!-- 🔐 Logs Section (Separate from Tabs) -->
+<hr class="my-5">
+<h4 class="mb-3">🔐 Activity Logs</h4>
+
+<!-- Filters for Logs -->
+<form method="GET" class="row g-2 mb-3">
+  <div class="col-md-2"><input type="date" name="log_from" class="form-control" value="<?= $log_from ?>"></div>
+  <div class="col-md-2"><input type="date" name="log_to" class="form-control" value="<?= $log_to ?>"></div>
+  <div class="col-md-2">
+    <select name="log_role" class="form-select">
+      <option value="">All Roles</option>
+      <option value="admin" <?= $log_role === 'admin' ? 'selected' : '' ?>>Admin</option>
+      <option value="instructor" <?= $log_role === 'instructor' ? 'selected' : '' ?>>Instructor</option>
+      <option value="learner" <?= $log_role === 'learner' ? 'selected' : '' ?>>Learner</option>
+    </select>
   </div>
+  <div class="col-md-3"><input type="text" name="log_action" class="form-control" placeholder="Search action..." value="<?= $log_action ?>"></div>
+  <div class="col-md-3 d-grid"><button type="submit" class="btn btn-outline-primary">Filter Logs</button></div>
+</form>
 
-  <div id="logsTable" class="table-responsive">
-    <table class="table table-bordered table-sm align-middle">
-      <thead class="table-light">
-        <tr>
-          <th>User</th>
-          <th>Role</th>
-          <th>Action</th>
-          <th>Date</th>
-          <th>Time</th>
-        </tr>
-      </thead>
-      <tbody>
-        <?php if ($security_logs->num_rows): ?>
-          <?php mysqli_data_seek($security_logs, 0); ?>
-          <?php while ($log = $security_logs->fetch_assoc()): 
-            $timestamp = strtotime($log['created_at']);
-            $date = date("Y-m-d", $timestamp);
-            $time = date("h:i A", $timestamp);
-          ?>
-            <tr>
-              <td><?= htmlspecialchars($log['name']) ?></td>
-              <td><span class="badge bg-secondary"><?= htmlspecialchars($log['role']) ?></span></td>
-              <td><?= htmlspecialchars($log['action']) ?></td>
-              <td><?= $date ?></td>
-              <td class="text-muted"><?= $time ?></td>
-            </tr>
-          <?php endwhile; ?>
-        <?php else: ?>
-          <tr><td colspan="5" class="text-center text-muted">No logs found.</td></tr>
-        <?php endif; ?>
-      </tbody>
-    </table>
-  </div>
+<!-- Logs Table & Print -->
+<div class="d-flex justify-content-between align-items-center mb-2">
+  <h5 class="mb-0">Log Results</h5>
+  <button onclick="printLogs()" class="btn btn-sm btn-outline-dark">🖨️ Print Logs</button>
 </div>
 
+<div id="logsTable" class="table-responsive">
+  <table class="table table-bordered table-sm align-middle">
+    <thead class="table-light">
+      <tr><th>User</th><th>Role</th><th>Action</th><th>Date</th><th>Time</th></tr>
+    </thead>
+    <tbody>
+      <?php if ($security_logs->num_rows): ?>
+        <?php while ($log = $security_logs->fetch_assoc()):
+          $ts = strtotime($log['created_at']);
+          $date = date("Y-m-d", $ts);
+          $time = date("h:i A", $ts);
+        ?>
+          <tr>
+            <td><?= htmlspecialchars($log['name']) ?></td>
+            <td><span class="badge bg-secondary"><?= htmlspecialchars($log['role']) ?></span></td>
+            <td><?= htmlspecialchars($log['action']) ?></td>
+            <td><?= $date ?></td>
+            <td class="text-muted"><?= $time ?></td>
+          </tr>
+        <?php endwhile; ?>
+      <?php else: ?>
+        <tr><td colspan="5" class="text-center text-muted">No logs found.</td></tr>
+      <?php endif; ?>
+    </tbody>
+  </table>
 </div>
 
-</div>
-
-<!-- Chart Script -->
+<!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 new Chart(document.getElementById('adminChart'), {
@@ -597,32 +628,24 @@ function printLogs() {
   const content = document.getElementById('logsTable').innerHTML;
   const printWin = window.open('', '', 'width=1000,height=600');
   printWin.document.write(`
-    <html>
-    <head>
-      <title>Activity Logs</title>
-      <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        h3 { text-align: center; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-        th { background-color: #f2f2f2; }
-      </style>
-    </head>
-    <body>
-      <h3>Activity Logs</h3>
-      ${content}
-    </body>
-    </html>
+    <html><head><title>Activity Logs</title>
+    <style>
+      body { font-family: Arial; margin: 20px; }
+      h3 { text-align: center; }
+      table { width: 100%; border-collapse: collapse; }
+      th, td { padding: 8px; border: 1px solid #ccc; text-align: left; }
+      th { background-color: #f9f9f9; }
+    </style></head><body>
+    <h3>Activity Logs</h3>
+    ${content}
+    </body></html>
   `);
   printWin.document.close();
   printWin.print();
 }
-
 </script>
 <?php endif; ?>
-
 </div>
-
 <!-- REQUIRED for Bootstrap Tabs to work -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
