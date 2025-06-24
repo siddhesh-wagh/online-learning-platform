@@ -424,10 +424,10 @@ $recent_comments = $conn->query("SELECT c.content, c.created_at, u.name, co.titl
                                  JOIN users u ON c.user_id = u.id 
                                  JOIN courses co ON c.course_id = co.id 
                                  ORDER BY c.created_at DESC LIMIT 5");
-$security_logs   = $conn->query("SELECT l.action, l.created_at, u.name 
-                                 FROM logs l 
-                                 JOIN users u ON l.user_id = u.id 
-                                 ORDER BY l.created_at DESC LIMIT 10");
+$security_logs = $conn->query("SELECT l.action, l.created_at, u.name, u.role 
+                                FROM logs l 
+                                JOIN users u ON l.user_id = u.id 
+                                ORDER BY l.created_at DESC LIMIT 50");
 ?>
 
 <!-- 📊 Stat Cards -->
@@ -540,26 +540,36 @@ $security_logs   = $conn->query("SELECT l.action, l.created_at, u.name
       <thead class="table-light">
         <tr>
           <th>User</th>
+          <th>Role</th>
           <th>Action</th>
-          <th>Date/Time</th>
+          <th>Date</th>
+          <th>Time</th>
         </tr>
       </thead>
       <tbody>
         <?php if ($security_logs->num_rows): ?>
           <?php mysqli_data_seek($security_logs, 0); ?>
-          <?php while ($log = $security_logs->fetch_assoc()): ?>
+          <?php while ($log = $security_logs->fetch_assoc()): 
+            $timestamp = strtotime($log['created_at']);
+            $date = date("Y-m-d", $timestamp);
+            $time = date("h:i A", $timestamp);
+          ?>
             <tr>
               <td><?= htmlspecialchars($log['name']) ?></td>
+              <td><span class="badge bg-secondary"><?= htmlspecialchars($log['role']) ?></span></td>
               <td><?= htmlspecialchars($log['action']) ?></td>
-              <td class="text-muted"><?= $log['created_at'] ?></td>
+              <td><?= $date ?></td>
+              <td class="text-muted"><?= $time ?></td>
             </tr>
           <?php endwhile; ?>
         <?php else: ?>
-          <tr><td colspan="3" class="text-center text-muted">No logs found.</td></tr>
+          <tr><td colspan="5" class="text-center text-muted">No logs found.</td></tr>
         <?php endif; ?>
       </tbody>
     </table>
   </div>
+</div>
+
 </div>
 
 </div>
@@ -585,14 +595,29 @@ new Chart(document.getElementById('adminChart'), {
 
 function printLogs() {
   const content = document.getElementById('logsTable').innerHTML;
-  const printWin = window.open('', '', 'width=800,height=600');
-  printWin.document.write('<html><head><title>Logs</title></head><body>');
-  printWin.document.write('<h3>Activity Logs</h3>');
-  printWin.document.write(content);
-  printWin.document.write('</body></html>');
+  const printWin = window.open('', '', 'width=1000,height=600');
+  printWin.document.write(`
+    <html>
+    <head>
+      <title>Activity Logs</title>
+      <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        h3 { text-align: center; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+      </style>
+    </head>
+    <body>
+      <h3>Activity Logs</h3>
+      ${content}
+    </body>
+    </html>
+  `);
   printWin.document.close();
   printWin.print();
 }
+
 </script>
 <?php endif; ?>
 
