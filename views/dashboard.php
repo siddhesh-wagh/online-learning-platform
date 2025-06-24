@@ -557,20 +557,23 @@ $security_logs = $conn->query("
 <h4 class="mb-3">🔐 Activity Logs</h4>
 
 <!-- Filters for Logs -->
-<form method="GET" class="row g-2 mb-3">
-  <div class="col-md-2"><input type="date" name="log_from" class="form-control" value="<?= $log_from ?>"></div>
-  <div class="col-md-2"><input type="date" name="log_to" class="form-control" value="<?= $log_to ?>"></div>
+<form id="logFilterForm" class="row g-2 mb-3">
+  <div class="col-md-2"><input type="date" name="log_from" class="form-control"></div>
+  <div class="col-md-2"><input type="date" name="log_to" class="form-control"></div>
   <div class="col-md-2">
     <select name="log_role" class="form-select">
       <option value="">All Roles</option>
-      <option value="admin" <?= $log_role === 'admin' ? 'selected' : '' ?>>Admin</option>
-      <option value="instructor" <?= $log_role === 'instructor' ? 'selected' : '' ?>>Instructor</option>
-      <option value="learner" <?= $log_role === 'learner' ? 'selected' : '' ?>>Learner</option>
+      <option value="admin">Admin</option>
+      <option value="instructor">Instructor</option>
+      <option value="learner">Learner</option>
     </select>
   </div>
-  <div class="col-md-3"><input type="text" name="log_action" class="form-control" placeholder="Search action..." value="<?= $log_action ?>"></div>
-  <div class="col-md-3 d-grid"><button type="submit" class="btn btn-outline-primary">Filter Logs</button></div>
+  <div class="col-md-3"><input type="text" name="log_action" class="form-control" placeholder="Search action..."></div>
+  <div class="col-md-3 d-grid">
+    <button type="submit" class="btn btn-outline-primary">Filter Logs</button>
+  </div>
 </form>
+
 
 <!-- Logs Table & Print -->
 <div class="d-flex justify-content-between align-items-center mb-2">
@@ -643,6 +646,21 @@ function printLogs() {
   printWin.document.close();
   printWin.print();
 }
+
+document.getElementById('logFilterForm').addEventListener('submit', function (e) {
+  e.preventDefault(); // Prevent page reload
+
+  const formData = new FormData(this);
+  const params = new URLSearchParams(formData);
+
+  fetch('load-logs.php?' + params.toString())
+    .then(res => res.text())
+    .then(data => {
+      document.getElementById('logsTable').innerHTML = data;
+    });
+});
+
+
 </script>
 <?php endif; ?>
 </div>
