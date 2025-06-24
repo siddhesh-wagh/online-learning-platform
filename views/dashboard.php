@@ -674,6 +674,20 @@ document.getElementById('clearLogsBtn').addEventListener('click', function () {
     });
 });
 
+function updateLogCount(from, to, total) {
+  document.getElementById("logCountDisplay").innerText = `Showing ${from}–${to} of ${total} logs`;
+}
+
+function exportLogs(format) {
+  const formData = new FormData(document.getElementById('logFilterForm'));
+  formData.append('export', format); // format = 'csv' or 'pdf'
+
+  const url = new URL('load-logs.php', window.location.origin);
+  formData.forEach((value, key) => url.searchParams.append(key, value));
+
+  window.open(url.toString(), '_blank');
+}
+
 
 
 </script>
