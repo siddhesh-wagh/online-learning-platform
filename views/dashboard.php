@@ -156,6 +156,61 @@ if ($selected_course_id && is_numeric($selected_course_id)) {
 
 </div>
 
+<!-- 📚 Instructor Course Management Table -->
+<div class="card mb-4">
+  <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+    <h5 class="mb-0">📋 Manage Your Courses</h5>
+    <a href="add-course.php" class="btn btn-sm btn-light">➕ Add New Course</a>
+  </div>
+  <div class="card-body p-0">
+    <?php
+    $my_courses = $conn->query("SELECT id, title, created_at FROM courses WHERE instructor_id = $instructor_id ORDER BY created_at DESC");
+    ?>
+    <?php if ($my_courses->num_rows > 0): ?>
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>#</th>
+              <th>📘 Course Title</th>
+              <th>📅 Created On</th>
+              <th>💬 Comments</th>
+              <th>👥 Enrolled</th>
+              <th style="width: 180px;">⚙️ Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <?php $i = 1; while ($course = $my_courses->fetch_assoc()): ?>
+              <?php
+                // Fetch comments count
+                $course_id = $course['id'];
+                $comment_count = $conn->query("SELECT COUNT(*) AS total FROM comments WHERE course_id = $course_id")->fetch_assoc()['total'] ?? 0;
+                $student_count = $conn->query("SELECT COUNT(DISTINCT user_id) AS total FROM course_progress WHERE course_id = $course_id")->fetch_assoc()['total'] ?? 0;
+              ?>
+              <tr>
+                <td><?= $i++ ?></td>
+                <td><?= htmlspecialchars($course['title']) ?></td>
+                <td><?= date("M d, Y", strtotime($course['created_at'])) ?></td>
+                <td><span class="badge bg-info"><?= $comment_count ?></span></td>
+                <td><span class="badge bg-success"><?= $student_count ?></span></td>
+                <td>
+                  <a href="course-preview.php?id=<?= $course['id'] ?>" class="btn btn-sm btn-outline-primary">👁️ Preview</a>
+                  <a href="delete-course.php?id=<?= $course_id ?>"
+                     class="btn btn-sm btn-outline-danger"
+                     onclick="return confirm('Are you sure you want to delete this course?')">🗑️ Delete</a>
+                </td>
+              </tr>
+            <?php endwhile; ?>
+          </tbody>
+        </table>
+      </div>
+    <?php else: ?>
+      <p class="p-3 text-muted mb-0">You haven't created any courses yet.</p>
+    <?php endif; ?>
+  </div>
+</div>
+
+
 <!-- 🔔 Notifications -->
 <div class="card mb-4">
     <div class="card-header d-flex justify-content-between">
