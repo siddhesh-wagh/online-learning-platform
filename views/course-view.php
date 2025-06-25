@@ -17,7 +17,7 @@ $course_id = (int) $_GET['id'];
 $user_id = $_SESSION['user_id'];
 $current_percent = 0;
 
-// Fetch course
+// Fetch course info
 $stmt = $conn->prepare("SELECT c.title, c.description, c.file_path, c.instructor_id, u.name AS instructor_name, u.email AS instructor_email
                         FROM courses c
                         JOIN users u ON c.instructor_id = u.id
@@ -27,15 +27,11 @@ $stmt->execute();
 $course = $stmt->get_result()->fetch_assoc();
 if (!$course) { echo "Course not found."; exit; }
 
-// Track access
-$track_stmt = $conn->prepare("INSERT INTO course_progress (user_id, course_id, progress_percent, updated_at)
-                              VALUES (?, ?, 0, NOW())
-                              ON DUPLICATE KEY UPDATE updated_at = NOW()");
-$track_stmt->bind_param("ii", $user_id, $course_id);
-$track_stmt->execute();
-logAction($conn, $user_id, "Accessed course: " . $course['title']);
+// Ensure a progress row exists (only once)
+$conn->query("INSERT IGNORE INTO course_progress (user_id, course_id, progress_percent, updated_at)
+              VALUES ($user_id, $course_id, 0, NOW())");
 
-// Handle progress update and comments
+// Handle progress or comment POST actions
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
     if (isset($_POST['update_progress'])) {
         $percent = (int) $_POST['progress_percent'];
@@ -62,11 +58,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $stmt->execute();
             logAction($conn, $user_id, "Commented on course: " . $course['title']);
 
-            // Notify instructor
-            $notif_stmt = $conn->prepare("INSERT INTO notifications (user_id, message) VALUES (?, ?)");
             $message = $_SESSION['name'] . " commented on your course: " . $course['title'];
-            $notif_stmt->bind_param("is", $course['instructor_id'], $message);
-            $notif_stmt->execute();
+            $notif = $conn->prepare("INSERT INTO notifications (user_id, message) VALUES (?, ?)");
+            $notif->bind_param("is", $course['instructor_id'], $message);
+            $notif->execute();
 
             include_once '../includes/mailer.php';
             sendEmail(
@@ -82,7 +77,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     }
 }
 
-// Get current progress
+// Fetch progress
 $progress_stmt = $conn->prepare("SELECT progress_percent FROM course_progress WHERE user_id = ? AND course_id = ?");
 $progress_stmt->bind_param("ii", $user_id, $course_id);
 $progress_stmt->execute();
@@ -91,8 +86,7 @@ if ($progress_row = $progress_result->fetch_assoc()) {
     $current_percent = $progress_row['progress_percent'];
 }
 
-// Pagination for comments
-$comments_result = null;
+// Fetch comments (pagination)
 $comments_per_page = 5;
 $page = max(1, (int)($_GET['page'] ?? 1));
 $offset = ($page - 1) * $comments_per_page;
@@ -134,9 +128,11 @@ $comments_result = $comments_stmt->get_result();
 
   <?php if (!empty($course['file_path'])):
     $file_url = "../" . $course['file_path'];
-    $file_ext = pathinfo($file_url, PATHINFO_EXTENSION);
+    $file_ext = strtolower(pathinfo($file_url, PATHINFO_EXTENSION));
+    $safe_title = preg_replace("/[^a-zA-Z0-9]/", "", $course['title']);
+    $download_name = "CourseMaterial_" . $course_id . "_" . $safe_title . "." . $file_ext;
   ?>
-    <h4 class="mt-4">Course Material</h4>
+    <h4 class="mt-4">📁 Course Material</h4>
     <div class="card mb-4">
       <div class="row g-0">
         <div class="col-md-8 p-3">
@@ -152,17 +148,13 @@ $comments_result = $comments_stmt->get_result();
         </div>
         <div class="col-md-4 border-start p-3">
           <h5 class="mb-3">📥 Download</h5>
-          <?php
-              // Sanitize title for filename (remove spaces/special chars)
-              $safe_title = preg_replace("/[^a-zA-Z0-9]/", "", $course['title']);
-              $download_name = "CourseMaterial_" . $course_id . "_" . $safe_title . "." . $file_ext;
-          ?>
-              <a href="<?= $file_url ?>" class="btn btn-success w-100 mb-2" download="<?= $download_name ?>">Download</a>          <div class="mb-3 text-muted">
+          <a href="<?= $file_url ?>" class="btn btn-success w-100 mb-2" download="<?= $download_name ?>">Download</a>
+          <div class="mb-3 text-muted">
             Type: <?= strtoupper($file_ext) ?><br>
             Size: <?= round(filesize($file_url) / 1024 / 1024, 2) ?> MB
           </div>
           <hr>
-          <h6>📊 Course Progress</h6>
+          <h6>📊 Progress</h6>
           <div class="progress mb-2" style="height: 20px;">
             <div class="progress-bar bg-<?= $current_percent == 100 ? 'success' : 'info' ?>" 
                  style="width: <?= $current_percent ?>%;">
@@ -185,6 +177,7 @@ $comments_result = $comments_stmt->get_result();
     </div>
   <?php endif; ?>
 
+  <!-- 💬 Comments Section -->
   <hr>
   <h4>💬 Discussion</h4>
   <form method="POST" class="mb-4">
@@ -198,6 +191,7 @@ $comments_result = $comments_stmt->get_result();
         <strong><?= htmlspecialchars($comment['name']) ?></strong>
         <small class="text-muted">(<?= $comment['created_at'] ?>)</small>
         <p><?= nl2br(htmlspecialchars($comment['content'])) ?></p>
+
         <?php
         $reply_stmt = $conn->prepare("SELECT r.reply, r.created_at, u.name AS instructor_name
                                       FROM replies r JOIN users u ON r.instructor_id = u.id 
