@@ -79,15 +79,14 @@ $result = $stmt->get_result();
           $thumbnail = $course['thumbnail_path'] ?? '';
           $thumbnail_src = ($thumbnail && file_exists("../$thumbnail")) ? "../$thumbnail" : "../assets/images/placeholder-course.png";
 
-          // Progress only for learners
-          $progress = null;
+          // ✅ Fetch real progress percent for learners
+          $progress = 0;
           if ($is_learner) {
-              $status_stmt = $conn->prepare("SELECT status FROM course_progress WHERE user_id = ? AND course_id = ?");
-              $status_stmt->bind_param("ii", $user_id, $cid);
-              $status_stmt->execute();
-              $status_data = $status_stmt->get_result()->fetch_assoc();
-              $status = $status_data['status'] ?? 'not_started';
-              $progress = $status === 'completed' ? 100 : ($status === 'in_progress' ? 40 : 0);
+              $progress_stmt = $conn->prepare("SELECT progress_percent FROM course_progress WHERE user_id = ? AND course_id = ?");
+              $progress_stmt->bind_param("ii", $user_id, $cid);
+              $progress_stmt->execute();
+              $progress_data = $progress_stmt->get_result()->fetch_assoc();
+              $progress = $progress_data['progress_percent'] ?? 0;
           }
         ?>
         <div class="col-md-4">
