@@ -70,13 +70,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $stmt->bind_param("issss", $instructor_id, $title, $description, $file_path, $thumbnail_path);
 
     if ($stmt->execute()) {
-        logAction($instructor_id, "Created course: $title"); // ✅ Centralized log
+        logAction($conn, $instructor_id, "Created course: $title"); // ✅ FIXED: include $conn
         echo "<div class='alert alert-success'>✅ Course added successfully!</div>";
     } else {
         echo "<div class='alert alert-danger'>❌ Error: " . $stmt->error . "</div>";
     }
 }
 ?>
+
 
 <!DOCTYPE html>
 <html lang="en">
