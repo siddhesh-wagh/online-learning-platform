@@ -354,6 +354,14 @@ $suggest->bind_param("i", $learner_id);
 $suggest->execute();
 $suggestions = $suggest->get_result();
 
+function getCourseIdByTitle($conn, $title) {
+  $stmt = $conn->prepare("SELECT id FROM courses WHERE title = ? LIMIT 1");
+  $stmt->bind_param("s", $title);
+  $stmt->execute();
+  $result = $stmt->get_result()->fetch_assoc();
+  return $result['id'] ?? '#';
+}
+
 // Time ago helper
 function timeAgo($datetime) {
     $time = strtotime($datetime);
@@ -468,37 +476,57 @@ function timeAgo($datetime) {
     </script>
   <?php endif; ?>
 
-  <!-- 💬 Comments -->
-  <div class="mt-5">
-    <h5>💬 Your Recent Comments</h5>
-    <?php if ($recent_comments->num_rows > 0): ?>
-      <ul class="list-group mb-3">
-        <?php while ($c = $recent_comments->fetch_assoc()): ?>
-          <li class="list-group-item">
-            <strong><?= htmlspecialchars($c['title']) ?></strong><br>
-            <?= nl2br(htmlspecialchars($c['content'])) ?>
-            <div class="text-muted small"><?= date("M d, Y h:i A", strtotime($c['created_at'])) ?></div>
-          </li>
-        <?php endwhile; ?>
-      </ul>
-      <!-- Pagination -->
-      <?php if ($total_comment_pages > 1): ?>
-        <nav>
-          <ul class="pagination justify-content-center">
-            <?php if ($page > 1): ?>
-              <li class="page-item"><a class="page-link" href="?page=<?= $page - 1 ?>">« Prev</a></li>
-            <?php endif; ?>
-            <li class="page-item disabled"><span class="page-link">Page <?= $page ?> of <?= $total_comment_pages ?></span></li>
-            <?php if ($page < $total_comment_pages): ?>
-              <li class="page-item"><a class="page-link" href="?page=<?= $page + 1 ?>">Next »</a></li>
-            <?php endif; ?>
-          </ul>
-        </nav>
-      <?php endif; ?>
-    <?php else: ?>
-      <p class="text-muted">No comments yet.</p>
+  <!-- 💬 Recent Comments -->
+<div class="mt-5">
+  <h5>💬 Your Recent Comments</h5>
+  <?php if ($recent_comments->num_rows > 0): ?>
+    <ul class="list-group mb-3">
+      <?php
+        // Fetch instructor names for each comment
+        while ($c = $recent_comments->fetch_assoc()):
+          // Get instructor name from the course
+          $instructor_stmt = $conn->prepare("
+            SELECT u.name 
+            FROM courses c 
+            JOIN users u ON c.instructor_id = u.id 
+            WHERE c.title = ?
+            LIMIT 1
+          ");
+          $instructor_stmt->bind_param("s", $c['title']);
+          $instructor_stmt->execute();
+          $instructor = $instructor_stmt->get_result()->fetch_assoc()['name'] ?? 'N/A';
+      ?>
+      <li class="list-group-item">
+        <div class="fw-bold">Course: <?= htmlspecialchars($c['title']) ?></div>
+        <div class="text-muted small mb-2">Instructor: <?= htmlspecialchars($instructor) ?></div>
+        <div><?= nl2br(htmlspecialchars($c['content'])) ?></div>
+        <div class="text-muted small mt-1"><?= date("M d, Y h:i A", strtotime($c['created_at'])) ?></div>
+        <div class="mt-2">
+          <a href="course-view.php?id=<?= $course_id = getCourseIdByTitle($conn, $c['title']) ?>" class="btn btn-sm btn-outline-primary">🔗 View Course</a>
+        </div>
+      </li>
+      <?php endwhile; ?>
+    </ul>
+
+    <!-- Pagination -->
+    <?php if ($total_comment_pages > 1): ?>
+      <nav>
+        <ul class="pagination justify-content-center">
+          <?php if ($page > 1): ?>
+            <li class="page-item"><a class="page-link" href="?page=<?= $page - 1 ?>">« Prev</a></li>
+          <?php endif; ?>
+          <li class="page-item disabled"><span class="page-link">Page <?= $page ?> of <?= $total_comment_pages ?></span></li>
+          <?php if ($page < $total_comment_pages): ?>
+            <li class="page-item"><a class="page-link" href="?page=<?= $page + 1 ?>">Next »</a></li>
+          <?php endif; ?>
+        </ul>
+      </nav>
     <?php endif; ?>
-  </div>
+  <?php else: ?>
+    <p class="text-muted">No comments yet.</p>
+  <?php endif; ?>
+</div>
+
 
   <!-- 🎯 Suggested Courses -->
   <div class="mt-5">
