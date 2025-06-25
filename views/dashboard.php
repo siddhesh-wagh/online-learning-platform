@@ -104,11 +104,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_reply'])) {
 <?php
 $instructor_id = $_SESSION['user_id'];
 
+// Pagination Setup
+$limit = 3;
+$page = max(1, (int)($_GET['page'] ?? 1));
+$offset = ($page - 1) * $limit;
+
+// Total Courses Count
+$total_result = $conn->prepare("SELECT COUNT(*) as total FROM courses WHERE instructor_id = ?");
+$total_result->bind_param("i", $instructor_id);
+$total_result->execute();
+$total_courses = $total_result->get_result()->fetch_assoc()['total'] ?? 0;
+$total_pages = ceil($total_courses / $limit);
+
 // Stats
-$course_count = $conn->query("SELECT COUNT(*) AS total FROM courses WHERE instructor_id = $instructor_id")->fetch_assoc()['total'];
 $upload_pdf = $conn->query("SELECT COUNT(*) AS total FROM courses WHERE instructor_id = $instructor_id AND file_path LIKE '%.pdf'")->fetch_assoc()['total'];
 $upload_mp4 = $conn->query("SELECT COUNT(*) AS total FROM courses WHERE instructor_id = $instructor_id AND file_path LIKE '%.mp4'")->fetch_assoc()['total'];
-
 $total_enrolled = $conn->query("
   SELECT COUNT(DISTINCT cp.user_id) AS total 
   FROM course_progress cp 
@@ -116,21 +126,29 @@ $total_enrolled = $conn->query("
   WHERE c.instructor_id = $instructor_id
 ")->fetch_assoc()['total'];
 
-// Courses for dropdown
-$courses = $conn->query("SELECT id, title FROM courses WHERE instructor_id = $instructor_id ORDER BY created_at DESC");
+// Paginated Courses
+$stmt = $conn->prepare("SELECT id, title, created_at FROM courses WHERE instructor_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?");
+$stmt->bind_param("iii", $instructor_id, $limit, $offset);
+$stmt->execute();
+$paginated_courses = $stmt->get_result();
 
-// Comments for selected course
+// Dropdown Courses for Comments Viewer
+$courses_dropdown = $conn->prepare("SELECT id, title FROM courses WHERE instructor_id = ? ORDER BY created_at DESC");
+$courses_dropdown->bind_param("i", $instructor_id);
+$courses_dropdown->execute();
+$courses_list = $courses_dropdown->get_result();
+
+// Selected Course Comments
 $selected_course_id = $_GET['course_id'] ?? '';
 $comments_result = null;
 if ($selected_course_id && is_numeric($selected_course_id)) {
     $stmt = $conn->prepare("
-    SELECT com.id, com.content, com.created_at, u.name 
-    FROM comments com
-    JOIN users u ON com.user_id = u.id 
-    WHERE com.course_id = ? 
-    ORDER BY com.created_at DESC
-");
-
+        SELECT com.id, com.content, com.created_at, u.name 
+        FROM comments com
+        JOIN users u ON com.user_id = u.id 
+        WHERE com.course_id = ? 
+        ORDER BY com.created_at DESC
+    ");
     $stmt->bind_param("i", $selected_course_id);
     $stmt->execute();
     $comments_result = $stmt->get_result();
@@ -139,34 +157,24 @@ if ($selected_course_id && is_numeric($selected_course_id)) {
 
 <!-- 📊 Quick Stats -->
 <div class="row mb-4">
-    <div class="col-md-3"><div class="card border-primary"><div class="card-body text-center">
-        <h6>Total Courses</h6><p class="fs-4"><?= $course_count ?></p></div></div></div>
-    <div class="col-md-3"><div class="card border-info"><div class="card-body text-center">
-        <h6>PDFs Uploaded</h6><p class="fs-4"><?= $upload_pdf ?></p></div></div></div>
-    <div class="col-md-3"><div class="card border-warning"><div class="card-body text-center">
-        <h6>Videos Uploaded</h6><p class="fs-4"><?= $upload_mp4 ?></p></div></div></div>
-        <div class="col-md-3">
-  <div class="card border-success">
-    <div class="card-body text-center">
-      <h6>Students Enrolled</h6>
-      <p class="fs-4"><?= $total_enrolled ?></p>
-    </div>
-  </div>
+  <div class="col-md-3"><div class="card border-primary"><div class="card-body text-center">
+      <h6>Total Courses</h6><p class="fs-4"><?= $total_courses ?></p></div></div></div>
+  <div class="col-md-3"><div class="card border-info"><div class="card-body text-center">
+      <h6>PDFs Uploaded</h6><p class="fs-4"><?= $upload_pdf ?></p></div></div></div>
+  <div class="col-md-3"><div class="card border-warning"><div class="card-body text-center">
+      <h6>Videos Uploaded</h6><p class="fs-4"><?= $upload_mp4 ?></p></div></div></div>
+  <div class="col-md-3"><div class="card border-success"><div class="card-body text-center">
+      <h6>Students Enrolled</h6><p class="fs-4"><?= $total_enrolled ?></p></div></div></div>
 </div>
 
-</div>
-
-<!-- 📚 Instructor Course Management Table -->
+<!-- 📚 Manage Courses Table -->
 <div class="card mb-4">
   <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
     <h5 class="mb-0">📋 Manage Your Courses</h5>
     <a href="add-course.php" class="btn btn-sm btn-light">➕ Add New Course</a>
   </div>
   <div class="card-body p-0">
-    <?php
-    $my_courses = $conn->query("SELECT id, title, created_at FROM courses WHERE instructor_id = $instructor_id ORDER BY created_at DESC");
-    ?>
-    <?php if ($my_courses->num_rows > 0): ?>
+    <?php if ($paginated_courses->num_rows > 0): ?>
       <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">
           <thead class="table-light">
@@ -180,9 +188,8 @@ if ($selected_course_id && is_numeric($selected_course_id)) {
             </tr>
           </thead>
           <tbody>
-            <?php $i = 1; while ($course = $my_courses->fetch_assoc()): ?>
+            <?php $i = $offset + 1; while ($course = $paginated_courses->fetch_assoc()): ?>
               <?php
-                // Fetch comments count
                 $course_id = $course['id'];
                 $comment_count = $conn->query("SELECT COUNT(*) AS total FROM comments WHERE course_id = $course_id")->fetch_assoc()['total'] ?? 0;
                 $student_count = $conn->query("SELECT COUNT(DISTINCT user_id) AS total FROM course_progress WHERE course_id = $course_id")->fetch_assoc()['total'] ?? 0;
@@ -194,9 +201,8 @@ if ($selected_course_id && is_numeric($selected_course_id)) {
                 <td><span class="badge bg-info"><?= $comment_count ?></span></td>
                 <td><span class="badge bg-success"><?= $student_count ?></span></td>
                 <td>
-                  <a href="course-preview.php?id=<?= $course['id'] ?>" class="btn btn-sm btn-outline-primary">👁️ Preview</a>
-                  <a href="delete-course.php?id=<?= $course_id ?>"
-                     class="btn btn-sm btn-outline-danger"
+                  <a href="course-preview.php?id=<?= $course_id ?>" class="btn btn-sm btn-outline-primary">👁️ Preview</a>
+                  <a href="delete-course.php?id=<?= $course_id ?>" class="btn btn-sm btn-outline-danger"
                      onclick="return confirm('Are you sure you want to delete this course?')">🗑️ Delete</a>
                 </td>
               </tr>
@@ -204,41 +210,55 @@ if ($selected_course_id && is_numeric($selected_course_id)) {
           </tbody>
         </table>
       </div>
+
+      <!-- 📄 Pagination -->
+      <?php if ($total_pages > 1): ?>
+        <nav class="mt-3">
+          <ul class="pagination justify-content-center">
+            <?php if ($page > 1): ?>
+              <li class="page-item"><a class="page-link" href="?page=<?= $page - 1 ?>">« Prev</a></li>
+            <?php endif; ?>
+            <li class="page-item disabled"><span class="page-link">Page <?= $page ?> of <?= $total_pages ?></span></li>
+            <?php if ($page < $total_pages): ?>
+              <li class="page-item"><a class="page-link" href="?page=<?= $page + 1 ?>">Next »</a></li>
+            <?php endif; ?>
+          </ul>
+        </nav>
+      <?php endif; ?>
     <?php else: ?>
       <p class="p-3 text-muted mb-0">You haven't created any courses yet.</p>
     <?php endif; ?>
   </div>
 </div>
 
-
 <!-- 🔔 Notifications -->
 <div class="card mb-4">
-    <div class="card-header d-flex justify-content-between">
-        <span>🔔 Notifications</span>
-        <span id="notif-count" class="badge bg-<?= $unread_count > 0 ? 'danger' : 'secondary' ?>">
-            <?= $unread_count ?> Unread
-        </span>
-    </div>
-    <ul class="list-group list-group-flush">
-        <?php if ($notifs && $notifs->num_rows > 0): ?>
-            <?php while ($n = $notifs->fetch_assoc()): ?>
-                <li class="list-group-item <?= $n['is_read'] ? '' : 'fw-bold'; ?>">
-                    <?= htmlspecialchars($n['message']); ?>
-                    <small class="text-muted float-end"><?= $n['created_at']; ?></small>
-                </li>
-            <?php endwhile; ?>
-        <?php else: ?>
-            <li class="list-group-item">No notifications yet.</li>
-        <?php endif; ?>
-    </ul>
-    <form method="POST" class="p-3 text-end">
-        <button name="mark_read" class="btn btn-sm btn-outline-secondary">Mark all as read</button>
-    </form>
+  <div class="card-header d-flex justify-content-between">
+    <span>🔔 Notifications</span>
+    <span id="notif-count" class="badge bg-<?= $unread_count > 0 ? 'danger' : 'secondary' ?>">
+      <?= $unread_count ?> Unread
+    </span>
+  </div>
+  <ul class="list-group list-group-flush">
+    <?php if ($notifs && $notifs->num_rows > 0): ?>
+      <?php while ($n = $notifs->fetch_assoc()): ?>
+        <li class="list-group-item <?= $n['is_read'] ? '' : 'fw-bold'; ?>">
+          <?= htmlspecialchars($n['message']); ?>
+          <small class="text-muted float-end"><?= $n['created_at']; ?></small>
+        </li>
+      <?php endwhile; ?>
+    <?php else: ?>
+      <li class="list-group-item">No notifications yet.</li>
+    <?php endif; ?>
+  </ul>
+  <form method="POST" class="p-3 text-end">
+    <button name="mark_read" class="btn btn-sm btn-outline-secondary">Mark all as read</button>
+  </form>
 </div>
 
-<!-- 💬 Course Comments Viewer -->
+<!-- 💬 Comments + Students -->
 <div class="row mb-5">
-  <!-- 💬 Comments Section -->
+  <!-- 💬 Comments -->
   <div class="col-md-7">
     <div class="card h-100">
       <div class="card-header bg-primary text-white">💬 View & Reply to Comments</div>
@@ -248,7 +268,7 @@ if ($selected_course_id && is_numeric($selected_course_id)) {
           <div class="input-group">
             <select name="course_id" id="course_id" class="form-select" onchange="this.form.submit()">
               <option value="">-- Choose a Course --</option>
-              <?php mysqli_data_seek($courses, 0); while ($course = $courses->fetch_assoc()): ?>
+              <?php mysqli_data_seek($courses_list, 0); while ($course = $courses_list->fetch_assoc()): ?>
                 <option value="<?= $course['id'] ?>" <?= $selected_course_id == $course['id'] ? 'selected' : '' ?>>
                   <?= htmlspecialchars($course['title']) ?>
                 </option>
@@ -266,22 +286,19 @@ if ($selected_course_id && is_numeric($selected_course_id)) {
               <?php while ($com = $comments_result->fetch_assoc()): ?>
                 <li class="list-group-item">
                   <strong><?= htmlspecialchars($com['name']) ?></strong><br>
-                  <?= htmlspecialchars($com['content']) ?>
-                  <small class="text-muted float-end"><?= $com['created_at'] ?></small>
-                  <br>
-
+                  <?= nl2br(htmlspecialchars($com['content'])) ?>
+                  <small class="text-muted float-end"><?= $com['created_at'] ?></small><br>
                   <?php
-                  $comment_id = $com['id'];
-                  $reply_stmt = $conn->prepare("SELECT reply, created_at FROM replies WHERE comment_id = ?");
-                  $reply_stmt->bind_param("i", $comment_id);
-                  $reply_stmt->execute();
-                  $reply = $reply_stmt->get_result()->fetch_assoc();
+                    $comment_id = $com['id'];
+                    $reply_stmt = $conn->prepare("SELECT reply, created_at FROM replies WHERE comment_id = ?");
+                    $reply_stmt->bind_param("i", $comment_id);
+                    $reply_stmt->execute();
+                    $reply = $reply_stmt->get_result()->fetch_assoc();
                   ?>
-
                   <?php if ($reply): ?>
                     <div class="mt-2 p-2 bg-light border rounded small">
                       <strong>You replied:</strong><br>
-                      <?= htmlspecialchars($reply['reply']) ?>
+                      <?= nl2br(htmlspecialchars($reply['reply'])) ?>
                       <small class="text-muted float-end"><?= $reply['created_at'] ?></small>
                     </div>
                   <?php else: ?>
@@ -305,7 +322,7 @@ if ($selected_course_id && is_numeric($selected_course_id)) {
     </div>
   </div>
 
-  <!-- 👥 Enrolled Students Section -->
+  <!-- 👥 Students -->
   <div class="col-md-5">
     <div class="card h-100">
       <div class="card-header bg-dark text-white">👥 Enrolled Students</div>
@@ -319,7 +336,6 @@ if ($selected_course_id && is_numeric($selected_course_id)) {
           $student_count = $students_result->num_rows;
           ?>
           <p><strong>Total Enrolled:</strong> <?= $student_count ?></p>
-
           <?php if ($student_count > 0): ?>
             <ul class="list-group small">
               <?php while ($stu = $students_result->fetch_assoc()): ?>
