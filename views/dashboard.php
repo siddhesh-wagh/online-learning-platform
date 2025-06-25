@@ -556,10 +556,14 @@ $security_logs = $conn->query("
 <hr class="my-5">
 <h4 class="mb-3">🔐 Activity Logs</h4>
 
-<!-- Filters for Logs -->
+<!-- 🔍 Filters for Logs -->
 <form id="logFilterForm" class="row g-2 mb-3">
-  <div class="col-md-2"><input type="date" name="log_from" class="form-control" value="<?= $log_from ?>"></div>
-  <div class="col-md-2"><input type="date" name="log_to" class="form-control" value="<?= $log_to ?>"></div>
+  <div class="col-md-2">
+    <input type="date" name="log_from" class="form-control" value="<?= htmlspecialchars($log_from) ?>">
+  </div>
+  <div class="col-md-2">
+    <input type="date" name="log_to" class="form-control" value="<?= htmlspecialchars($log_to) ?>">
+  </div>
   <div class="col-md-2">
     <select name="log_role" class="form-select">
       <option value="">All Roles</option>
@@ -568,52 +572,37 @@ $security_logs = $conn->query("
       <option value="learner" <?= $log_role === 'learner' ? 'selected' : '' ?>>Learner</option>
     </select>
   </div>
-  <div class="col-md-3"><input type="text" name="log_action" class="form-control" placeholder="Search action..." value="<?= $log_action ?>"></div>
-  
+  <div class="col-md-3">
+    <input type="text" name="log_action" class="form-control" placeholder="Search action..." value="<?= htmlspecialchars($log_action) ?>">
+  </div>
   <div class="col-md-3 d-flex gap-2">
     <button type="submit" class="btn btn-outline-primary w-50">Filter Logs</button>
     <button type="button" class="btn btn-outline-secondary w-50" id="clearLogsBtn">Clear</button>
   </div>
 </form>
 
-
-
-<!-- Logs Table & Print -->
-<div class="d-flex justify-content-between align-items-center mb-2">
-  <h5 class="mb-0">Log Results</h5>
-  <button onclick="printLogs()" class="btn btn-sm btn-outline-dark">🖨️ Print Logs</button>
+<!-- 🧾 Logs Controls -->
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <span id="logCountDisplay" class="text-muted small">Showing 0–0 of 0 logs</span>
+  </div>
+  <div class="btn-group">
+    <button type="button" class="btn btn-sm btn-outline-success" onclick="exportLogs('csv')">⬇️ Export CSV</button>
+    <button type="button" class="btn btn-sm btn-outline-danger" onclick="exportLogs('pdf')">⬇️ Export PDF</button>
+    <button type="button" onclick="printLogs()" class="btn btn-sm btn-outline-dark">🖨️ Print</button>
+  </div>
 </div>
 
+<!-- 📋 Logs Table Placeholder -->
 <div id="logsTable" class="table-responsive">
-  <table class="table table-bordered table-sm align-middle">
-    <thead class="table-light">
-      <tr><th>User</th><th>Role</th><th>Action</th><th>Date</th><th>Time</th></tr>
-    </thead>
-    <tbody>
-      <?php if ($security_logs->num_rows): ?>
-        <?php while ($log = $security_logs->fetch_assoc()):
-          $ts = strtotime($log['created_at']);
-          $date = date("Y-m-d", $ts);
-          $time = date("h:i A", $ts);
-        ?>
-          <tr>
-            <td><?= htmlspecialchars($log['name']) ?></td>
-            <td><span class="badge bg-secondary"><?= htmlspecialchars($log['role']) ?></span></td>
-            <td><?= htmlspecialchars($log['action']) ?></td>
-            <td><?= $date ?></td>
-            <td class="text-muted"><?= $time ?></td>
-          </tr>
-        <?php endwhile; ?>
-      <?php else: ?>
-        <tr><td colspan="5" class="text-center text-muted">No logs found.</td></tr>
-      <?php endif; ?>
-    </tbody>
-  </table>
+  <p class="text-muted">Loading logs...</p>
 </div>
+
 
 <!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
+// 📊 Doughnut Chart
 new Chart(document.getElementById('adminChart'), {
   type: 'doughnut',
   data: {
@@ -630,6 +619,7 @@ new Chart(document.getElementById('adminChart'), {
   }
 });
 
+// 🖨 Print Logs
 function printLogs() {
   const content = document.getElementById('logsTable').innerHTML;
   const printWin = window.open('', '', 'width=1000,height=600');
@@ -650,47 +640,56 @@ function printLogs() {
   printWin.print();
 }
 
-// Submit via AJAX
-document.getElementById('logFilterForm').addEventListener('submit', function (e) {
-  e.preventDefault();
-  const formData = new FormData(this);
-  const params = new URLSearchParams(formData);
-
-  fetch('load-logs.php?' + params.toString())
-    .then(res => res.text())
-    .then(data => {
-      document.getElementById('logsTable').innerHTML = data;
-    });
-});
-
-// Clear filters and reload unfiltered logs
-document.getElementById('clearLogsBtn').addEventListener('click', function () {
-  document.getElementById('logFilterForm').reset(); // Reset form inputs
-
-  fetch('load-logs.php') // No filters
-    .then(res => res.text())
-    .then(data => {
-      document.getElementById('logsTable').innerHTML = data;
-    });
-});
-
-function updateLogCount(from, to, total) {
-  document.getElementById("logCountDisplay").innerText = `Showing ${from}–${to} of ${total} logs`;
-}
-
+// 📥 Export Logs (CSV/PDF)
 function exportLogs(format) {
-  const formData = new FormData(document.getElementById('logFilterForm'));
-  formData.append('export', format); // format = 'csv' or 'pdf'
-
+  const form = document.getElementById('logFilterForm');
+  const data = new FormData(form);
   const url = new URL('load-logs.php', window.location.origin);
-  formData.forEach((value, key) => url.searchParams.append(key, value));
-
+  url.searchParams.set('export', format);
+  for (const [key, val] of data.entries()) {
+    url.searchParams.set(key, val);
+  }
   window.open(url.toString(), '_blank');
 }
 
+// 🔄 Load logs
+function loadLogs(queryParams = '') {
+  const url = 'load-logs.php' + (queryParams ? '?' + queryParams : '');
+  fetch(url)
+    .then(res => res.text())
+    .then(html => {
+      document.getElementById('logsTable').innerHTML = html;
+    });
+}
 
+// 🔢 Update log count display
+function updateLogCount(from, to, total) {
+  const el = document.getElementById("logCountDisplay");
+  if (el) {
+    el.textContent = `Showing ${from}–${to} of ${total} logs`;
+  }
+}
 
+// 📄 Handle filter submit
+document.getElementById('logFilterForm').addEventListener('submit', function (e) {
+  e.preventDefault();
+  const formData = new FormData(this);
+  const query = new URLSearchParams(formData).toString();
+  loadLogs(query);
+});
+
+// ❌ Clear filters
+document.getElementById('clearLogsBtn').addEventListener('click', function () {
+  document.getElementById('logFilterForm').reset();
+  loadLogs(); // Reset to all logs
+});
+
+// 🔃 Initial load
+document.addEventListener('DOMContentLoaded', () => {
+  loadLogs();
+});
 </script>
+
 <?php endif; ?>
 </div>
 <!-- REQUIRED for Bootstrap Tabs to work -->
