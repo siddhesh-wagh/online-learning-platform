@@ -289,6 +289,9 @@ if ($selected_course_id && is_numeric($selected_course_id)) {
 $learner_id = $_SESSION['user_id'];
 $name = $_SESSION['name'];
 $filter = $_GET['filter'] ?? 'all';
+$page = max(1, (int)($_GET['page'] ?? 1));
+$comments_per_page = 10;
+$offset = ($page - 1) * $comments_per_page;
 
 // Fetch all enrolled courses and progress
 $stmt = $conn->prepare("
@@ -316,20 +319,27 @@ foreach ($all_courses as $c) {
     };
 }
 
-// Recent Comments
-$comments = $conn->prepare("
+// Paginated Comments
+$comment_stmt = $conn->prepare("
   SELECT c.content, c.created_at, co.title 
   FROM comments c
   JOIN courses co ON c.course_id = co.id
   WHERE c.user_id = ?
   ORDER BY c.created_at DESC
-  LIMIT 5
+  LIMIT ? OFFSET ?
 ");
-$comments->bind_param("i", $learner_id);
-$comments->execute();
-$recent_comments = $comments->get_result();
+$comment_stmt->bind_param("iii", $learner_id, $comments_per_page, $offset);
+$comment_stmt->execute();
+$recent_comments = $comment_stmt->get_result();
 
-// Suggested courses (not enrolled)
+// Count total for pagination
+$count_result = $conn->prepare("SELECT COUNT(*) as total FROM comments WHERE user_id = ?");
+$count_result->bind_param("i", $learner_id);
+$count_result->execute();
+$total_comment = $count_result->get_result()->fetch_assoc()['total'] ?? 0;
+$total_comment_pages = ceil($total_comment / $comments_per_page);
+
+// Suggested Courses
 $suggest = $conn->prepare("
   SELECT c.id, c.title, u.name AS instructor 
   FROM courses c 
@@ -344,7 +354,7 @@ $suggest->bind_param("i", $learner_id);
 $suggest->execute();
 $suggestions = $suggest->get_result();
 
-// Time ago function
+// Time ago helper
 function timeAgo($datetime) {
     $time = strtotime($datetime);
     $diff = time() - $time;
@@ -361,59 +371,108 @@ function timeAgo($datetime) {
 <div class="mb-4">
   <h3 class="mb-3 fw-bold">👋 Welcome, <?= htmlspecialchars($name) ?>!</h3>
 
-  <!-- 🔘 Filter Buttons -->
-  <div class="btn-group mb-4" role="group">
-    <a href="?filter=all" class="btn btn-outline-primary <?= $filter === 'all' ? 'active' : '' ?>">📘 All Enrolled</a>
-    <a href="?filter=in_progress" class="btn btn-outline-warning <?= $filter === 'in_progress' ? 'active' : '' ?>">⏳ In Progress</a>
-    <a href="?filter=completed" class="btn btn-outline-success <?= $filter === 'completed' ? 'active' : '' ?>">✅ Completed</a>
-  </div>
+  <!-- 🧭 Tabs -->
+  <ul class="nav nav-tabs mb-4" id="learnerTabs" role="tablist">
+    <li class="nav-item">
+      <a class="nav-link <?= $filter === 'all' ? 'active' : '' ?>" href="?filter=all">📘 All Enrolled</a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link <?= $filter === 'completed' ? 'active' : '' ?>" href="?filter=completed">✅ Completed</a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link <?= $filter === 'chart' ? 'active' : '' ?>" href="?filter=chart">📊 Progress Chart</a>
+    </li>
+  </ul>
 
-  <!-- 📋 Enrolled Courses -->
-  <?php if (count($filtered_courses) > 0): ?>
-    <div class="list-group shadow-sm">
-      <?php foreach ($filtered_courses as $course): ?>
-        <?php
-          $status = $course['status'];
-          $progress = (int) $course['progress_percent'];
-        ?>
-        <div class="list-group-item d-flex flex-column flex-md-row justify-content-between align-items-md-center">
-          <div class="me-md-3">
-            <div class="fw-semibold fs-5"><?= htmlspecialchars($course['title']) ?></div>
-            <div class="text-muted small">
-              Enrolled on <?= date('M d, Y', strtotime($course['created_at'])) ?> · 
-              Last accessed <?= timeAgo($course['updated_at']) ?>
+  <!-- 📘 All Enrolled -->
+  <?php if ($filter === 'all'): ?>
+    <?php if (count($filtered_courses) > 0): ?>
+      <div class="list-group shadow-sm mb-4">
+        <?php foreach ($filtered_courses as $course): ?>
+          <?php
+            $progress = (int)$course['progress_percent'];
+            $status = $course['status'];
+          ?>
+          <div class="list-group-item d-flex flex-column flex-md-row justify-content-between align-items-md-center">
+            <div class="me-md-3">
+              <div class="fw-semibold fs-5"><?= htmlspecialchars($course['title']) ?></div>
+              <div class="text-muted small">
+                Enrolled on <?= date('M d, Y', strtotime($course['created_at'])) ?> · 
+                Last accessed <?= timeAgo($course['updated_at']) ?>
+              </div>
+              <div class="progress mt-2" style="height: 8px;">
+                <div class="progress-bar bg-<?= $progress === 100 ? 'success' : ($progress > 0 ? 'info' : 'secondary') ?>" 
+                     style="width: <?= $progress ?>%;"></div>
+              </div>
             </div>
-            <div class="progress mt-2" style="height: 8px;">
-              <div class="progress-bar bg-<?= $progress == 100 ? 'success' : ($progress > 0 ? 'info' : 'secondary') ?>" 
-                   style="width: <?= $progress ?>%;" 
-                   role="progressbar" aria-valuenow="<?= $progress ?>" 
-                   aria-valuemin="0" aria-valuemax="100"></div>
+            <div class="mt-3 mt-md-0 text-md-end">
+              <span class="badge bg-<?= $status === 'completed' ? 'success' : 'warning' ?> mb-2">
+                <?= ucfirst(str_replace('_', ' ', $status)) ?>
+              </span><br>
+              <a href="course-view.php?id=<?= $course['course_id'] ?>" class="btn btn-sm btn-outline-primary">▶️ View</a>
             </div>
           </div>
-          <div class="mt-3 mt-md-0 text-md-end">
-            <span class="badge bg-<?= $status === 'completed' ? 'success' : 'warning' ?> mb-2">
-              <?= ucfirst(str_replace('_', ' ', $status)) ?>
-            </span><br>
-            <a href="course-view.php?id=<?= $course['course_id'] ?>" class="btn btn-sm btn-outline-primary">▶️ View</a>
-          </div>
-        </div>
-      <?php endforeach; ?>
-    </div>
-  <?php else: ?>
-    <div class="alert alert-info mt-3">No courses found for this filter.</div>
+        <?php endforeach; ?>
+      </div>
+    <?php else: ?>
+      <div class="alert alert-info">No enrolled courses found.</div>
+    <?php endif; ?>
   <?php endif; ?>
 
-  <!-- 📈 Progress Chart -->
-  <div class="mt-5">
-    <h5>📊 Course Progress Overview</h5>
-    <canvas id="progressChart" height="120"></canvas>
-  </div>
+  <!-- ✅ Completed -->
+  <?php if ($filter === 'completed'): ?>
+    <?php
+      $completed_courses = array_filter($filtered_courses, fn($c) => $c['status'] === 'completed');
+    ?>
+    <?php if (count($completed_courses) > 0): ?>
+      <div class="list-group shadow-sm mb-4">
+        <?php foreach ($completed_courses as $course): ?>
+          <div class="list-group-item d-flex justify-content-between align-items-center">
+            <div>
+              <div class="fw-semibold"><?= htmlspecialchars($course['title']) ?></div>
+              <small class="text-muted">Completed on <?= date('M d, Y', strtotime($course['updated_at'])) ?></small>
+            </div>
+            <a href="course-view.php?id=<?= $course['course_id'] ?>" class="btn btn-sm btn-outline-success">🎓 Review</a>
+          </div>
+        <?php endforeach; ?>
+      </div>
+    <?php else: ?>
+      <p class="text-muted">No completed courses yet.</p>
+    <?php endif; ?>
+  <?php endif; ?>
 
-  <!-- 💬 Recent Comments -->
+  <!-- 📊 Chart -->
+  <?php if ($filter === 'chart'): ?>
+    <div class="text-center mt-4">
+      <h5>📈 Course Progress Overview</h5>
+      <div style="max-width: 300px; margin: auto;">
+        <canvas id="progressChart" height="100"></canvas>
+      </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+    new Chart(document.getElementById('progressChart'), {
+      type: 'doughnut',
+      data: {
+        labels: ['Completed', 'In Progress', 'Not Started'],
+        datasets: [{
+          data: [<?= $completed ?>, <?= $in_progress ?>, <?= $not_started ?>],
+          backgroundColor: ['#28a745', '#ffc107', '#adb5bd']
+        }]
+      },
+      options: {
+        cutout: '65%',
+        plugins: { legend: { position: 'bottom' } }
+      }
+    });
+    </script>
+  <?php endif; ?>
+
+  <!-- 💬 Comments -->
   <div class="mt-5">
     <h5>💬 Your Recent Comments</h5>
-    <?php if ($recent_comments->num_rows): ?>
-      <ul class="list-group">
+    <?php if ($recent_comments->num_rows > 0): ?>
+      <ul class="list-group mb-3">
         <?php while ($c = $recent_comments->fetch_assoc()): ?>
           <li class="list-group-item">
             <strong><?= htmlspecialchars($c['title']) ?></strong><br>
@@ -422,6 +481,20 @@ function timeAgo($datetime) {
           </li>
         <?php endwhile; ?>
       </ul>
+      <!-- Pagination -->
+      <?php if ($total_comment_pages > 1): ?>
+        <nav>
+          <ul class="pagination justify-content-center">
+            <?php if ($page > 1): ?>
+              <li class="page-item"><a class="page-link" href="?page=<?= $page - 1 ?>">« Prev</a></li>
+            <?php endif; ?>
+            <li class="page-item disabled"><span class="page-link">Page <?= $page ?> of <?= $total_comment_pages ?></span></li>
+            <?php if ($page < $total_comment_pages): ?>
+              <li class="page-item"><a class="page-link" href="?page=<?= $page + 1 ?>">Next »</a></li>
+            <?php endif; ?>
+          </ul>
+        </nav>
+      <?php endif; ?>
     <?php else: ?>
       <p class="text-muted">No comments yet.</p>
     <?php endif; ?>
@@ -429,31 +502,32 @@ function timeAgo($datetime) {
 
   <!-- 🎯 Suggested Courses -->
   <div class="mt-5">
-    <h5>🎯 Suggested Courses</h5>
+    <h5>🎯 Suggested Courses for You</h5>
     <?php if ($suggestions->num_rows): ?>
-      <ul class="list-group">
+      <div class="row g-3">
         <?php while ($s = $suggestions->fetch_assoc()): ?>
-          <li class="list-group-item d-flex justify-content-between align-items-center">
-            <div>
-              <strong><?= htmlspecialchars($s['title']) ?></strong><br>
-              <small>by <?= htmlspecialchars($s['instructor']) ?></small>
+          <div class="col-md-4">
+            <div class="card h-100 shadow-sm">
+              <div class="card-body d-flex flex-column">
+                <h6 class="card-title"><?= htmlspecialchars($s['title']) ?></h6>
+                <p class="text-muted small">Instructor: <?= htmlspecialchars($s['instructor']) ?></p>
+                <a href="course-view.php?id=<?= $s['id'] ?>" class="btn btn-sm btn-outline-primary mt-auto">Explore</a>
+              </div>
             </div>
-            <a href="course-view.php?id=<?= $s['id'] ?>" class="btn btn-sm btn-outline-primary">View</a>
-          </li>
+          </div>
         <?php endwhile; ?>
-      </ul>
+      </div>
     <?php else: ?>
       <p class="text-muted">You're enrolled in all available courses.</p>
     <?php endif; ?>
   </div>
 
-  <!-- 📚 Browse More -->
   <div class="mt-4 text-end">
     <a href="course-list.php" class="btn btn-secondary">📚 Browse More Courses</a>
   </div>
 </div>
 
-<!-- 📊 Chart.js Script -->
+<!-- Chart Script -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 new Chart(document.getElementById('progressChart'), {
@@ -466,6 +540,8 @@ new Chart(document.getElementById('progressChart'), {
     }]
   },
   options: {
+    cutout: '65%',
+    responsive: true,
     plugins: {
       legend: { position: 'bottom' }
     }
