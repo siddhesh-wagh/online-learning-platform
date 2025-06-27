@@ -122,6 +122,7 @@ $comments_result = $comments_stmt->get_result();
 <head>
   <title><?= htmlspecialchars($course['title']) ?></title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>
 <body class="bg-light">
 <div class="container py-4">
@@ -157,9 +158,33 @@ $comments_result = $comments_stmt->get_result();
               <source src="<?= $file_url ?>" type="video/mp4">
             </video>
           <?php elseif ($file_ext === 'pdf'): ?>
-            <embed src="<?= $file_url ?>" width="100%" height="500px" type="application/pdf">
+            <div id="pdf-viewer" style="border: 1px solid #ccc; height: 500px; overflow: auto;"></div>
+            <script>
+              const container = document.getElementById('pdf-viewer');
+              const url = '<?= $file_url ?>';
+
+              pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+              const renderPDF = async () => {
+                const pdf = await pdfjsLib.getDocument(url).promise;
+                for (let i = 1; i <= pdf.numPages; i++) {
+                  const page = await pdf.getPage(i);
+                  const viewport = page.getViewport({ scale: 1.2 });
+
+                  const canvas = document.createElement("canvas");
+                  const ctx = canvas.getContext("2d");
+                  canvas.height = viewport.height;
+                  canvas.width = viewport.width;
+
+                  await page.render({ canvasContext: ctx, viewport }).promise;
+                  container.appendChild(canvas);
+                }
+              };
+              renderPDF();
+            </script>
           <?php endif; ?>
         </div>
+
         <div class="col-md-4 border-start p-3">
           <h5 class="mb-3">📥 Download</h5>
           <?php if ($is_enrolled): ?>
