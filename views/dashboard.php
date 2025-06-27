@@ -919,16 +919,59 @@ new Chart(document.getElementById('adminChart'), {
   data: {
     labels: ['Learners', 'Instructors', 'Courses'],
     datasets: [{
+      label: 'User Distribution',
       data: [<?= $learner_count ?>, <?= $instructor_count ?>, <?= $course_count ?>],
-      backgroundColor: ['#3498db', '#9b59b6', '#f1c40f']
+      backgroundColor: ['#3498db', '#9b59b6', '#f1c40f'],
+      borderColor: '#ffffff',
+      borderWidth: 2,
+      hoverOffset: 20
     }]
   },
   options: {
+    responsive: true,
+    cutout: '60%',
     plugins: {
-      legend: { position: 'bottom' }
+      legend: {
+        position: 'bottom',
+        labels: {
+          usePointStyle: true,
+          padding: 20,
+          color: '#333',
+          font: {
+            size: 14,
+            weight: '500'
+          }
+        }
+      },
+      tooltip: {
+        callbacks: {
+          label: function(context) {
+            const label = context.label || '';
+            const value = context.raw || 0;
+            return `${label}: ${value}`;
+          }
+        },
+        backgroundColor: '#333',
+        titleFont: { size: 13 },
+        bodyFont: { size: 14 },
+        padding: 10
+      },
+      title: {
+        display: true,
+        text: '📊 User & Course Distribution',
+        font: {
+          size: 16,
+          weight: 'bold'
+        },
+        padding: {
+          top: 10,
+          bottom: 20
+        }
+      }
     }
   }
 });
+
 
 
 // 📊 Course Composition Chart
