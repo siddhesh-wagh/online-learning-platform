@@ -773,6 +773,18 @@ $security_logs = $conn->query("
     </div>
   </div>
 </div>
+<!-- 📊 Course Stats Bar Chart -->
+<div class="row mb-4">
+  <div class="col-md-6 mx-auto">
+    <div class="card">
+      <div class="card-header bg-dark text-white text-center">📊 Course Composition Overview</div>
+      <div class="card-body text-center">
+        <canvas id="courseStatsChart" height="200"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
 
 <!-- 🗓 Summary -->
 <div class="row mb-4">
@@ -911,6 +923,38 @@ new Chart(document.getElementById('adminChart'), {
     }
   }
 });
+
+
+// 📊 Course Composition Chart
+new Chart(document.getElementById('courseStatsChart'), {
+  type: 'bar',
+  data: {
+    labels: ['Courses', 'PDFs', 'Videos', 'Comments'],
+    datasets: [{
+      label: 'Count',
+      data: [<?= $course_count ?>, <?= $pdf_count ?>, <?= $video_count ?>, <?= $total_comments ?>],
+      backgroundColor: ['#28a745', '#ffc107', '#17a2b8', '#6c757d'],
+      borderColor: '#ccc',
+      borderWidth: 1
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { display: false }
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: {
+          precision: 0
+        }
+      }
+    }
+  }
+});
+
+
 
 // 🖨 Print Logs
 function printLogs() {
