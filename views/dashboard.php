@@ -762,28 +762,34 @@ $security_logs = $conn->query("
   <?php endforeach; ?>
 </div>
 
-<!-- 📈 Chart -->
+<!-- 📈 Charts Row (Medium Size) -->
 <div class="row mb-4">
-  <div class="col-md-6 mx-auto">
-    <div class="card">
-      <div class="card-header bg-secondary text-white text-center">📊 User Breakdown</div>
-      <div class="card-body text-center">
-        <canvas id="adminChart" height="200"></canvas>
+  <!-- 🧍 User Breakdown Chart -->
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-header bg-secondary text-white text-center py-2">
+        📊 User Breakdown
+      </div>
+      <div class="card-body text-center p-3">
+        <canvas id="adminChart" height="180" style="max-height: 220px;"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- 📘 Course Composition Chart -->
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-header bg-dark text-white text-center py-2">
+        📊 Course Composition Overview
+      </div>
+      <div class="card-body text-center p-3">
+        <canvas id="courseStatsChart" height="180" style="max-height: 220px;"></canvas>
       </div>
     </div>
   </div>
 </div>
-<!-- 📊 Course Stats Bar Chart -->
-<div class="row mb-4">
-  <div class="col-md-6 mx-auto">
-    <div class="card">
-      <div class="card-header bg-dark text-white text-center">📊 Course Composition Overview</div>
-      <div class="card-body text-center">
-        <canvas id="courseStatsChart" height="200"></canvas>
-      </div>
-    </div>
-  </div>
-</div>
+
+
 
 
 <!-- 🗓 Summary -->
