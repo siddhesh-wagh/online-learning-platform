@@ -768,7 +768,7 @@ $security_logs = $conn->query("
   <div class="col-md-6">
     <div class="card h-100">
       <div class="card-header bg-secondary text-white text-center py-2">
-        📊 User Breakdown
+        📊 User & Course Distribution
       </div>
       <div class="card-body text-center p-3">
         <canvas id="adminChart" height="180" style="max-height: 220px;"></canvas>
@@ -780,7 +780,7 @@ $security_logs = $conn->query("
   <div class="col-md-6">
     <div class="card h-100">
       <div class="card-header bg-dark text-white text-center py-2">
-        📊 Course Composition Overview
+        📘 Course Asset Composition
       </div>
       <div class="card-body text-center p-3">
         <canvas id="courseStatsChart" height="180" style="max-height: 220px;"></canvas>
@@ -958,7 +958,7 @@ new Chart(document.getElementById('adminChart'), {
       },
       title: {
         display: true,
-        text: '📊 User & Course Distribution',
+        text: '',
         font: {
           size: 16,
           weight: 'bold'
@@ -974,34 +974,96 @@ new Chart(document.getElementById('adminChart'), {
 
 
 
-// 📊 Course Composition Chart
 new Chart(document.getElementById('courseStatsChart'), {
   type: 'bar',
   data: {
     labels: ['Courses', 'PDFs', 'Videos', 'Comments'],
     datasets: [{
-      label: 'Count',
+      label: 'Total Count',
       data: [<?= $course_count ?>, <?= $pdf_count ?>, <?= $video_count ?>, <?= $total_comments ?>],
       backgroundColor: ['#28a745', '#ffc107', '#17a2b8', '#6c757d'],
-      borderColor: '#ccc',
-      borderWidth: 1
+      borderColor: ['#1e7e34', '#d39e00', '#117a8b', '#495057'],
+      borderWidth: 1,
+      borderRadius: 6,
+      barPercentage: 0.6,
+      categoryPercentage: 0.5
     }]
   },
   options: {
     responsive: true,
+    maintainAspectRatio: false,
     plugins: {
-      legend: { display: false }
+      legend: {
+        display: true,
+        position: 'top',
+        labels: {
+          boxWidth: 15,
+          font: {
+            size: 13,
+            weight: 'bold'
+          }
+        }
+      },
+      title: {
+        display: true,
+        text: '',
+        font: {
+          size: 16,
+          weight: 'bold'
+        },
+        padding: {
+          top: 10,
+          bottom: 20
+        }
+      },
+      tooltip: {
+        enabled: true,
+        callbacks: {
+          label: function(context) {
+            return `${context.label}: ${context.raw}`;
+          }
+        },
+        backgroundColor: '#222',
+        titleColor: '#fff',
+        bodyColor: '#fff',
+        cornerRadius: 6,
+        padding: 10
+      }
     },
     scales: {
       y: {
         beginAtZero: true,
         ticks: {
+          stepSize: 1,
           precision: 0
+        },
+        title: {
+          display: true,
+          text: 'Count',
+          font: {
+            size: 14,
+            weight: '600'
+          }
+        }
+      },
+      x: {
+        title: {
+          display: true,
+          text: 'Type of Content',
+          font: {
+            size: 14,
+            weight: '600'
+          }
         }
       }
+    },
+    animation: {
+      duration: 1000,
+      easing: 'easeOutBounce'
     }
   }
 });
+
 
 
 
