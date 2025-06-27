@@ -201,9 +201,18 @@ if ($selected_course_id && is_numeric($selected_course_id)) {
                 <td><span class="badge bg-info"><?= $comment_count ?></span></td>
                 <td><span class="badge bg-success"><?= $student_count ?></span></td>
                 <td>
-                  <a href="course-preview.php?id=<?= $course_id ?>" class="btn btn-sm btn-outline-primary">👁️ Preview</a>
-                  <a href="delete-course.php?id=<?= $course_id ?>" class="btn btn-sm btn-outline-danger"
-                     onclick="return confirm('Are you sure you want to delete this course?')">🗑️ Delete</a>
+                  <div class="d-flex flex-wrap gap-2">
+                    <a href="course-preview.php?id=<?= $course_id ?>" 
+                      class="btn btn-sm btn-outline-primary d-flex align-items-center">
+                      👁️ <span class="ms-1">Preview</span>
+                    </a>
+
+                    <a href="delete-course.php?id=<?= $course_id ?>" 
+                      class="btn btn-sm btn-outline-danger d-flex align-items-center"
+                      onclick="return confirm('Are you sure you want to delete this course?')">
+                      🗑️ <span class="ms-1">Delete</span>
+                    </a>
+                  </div>
                 </td>
               </tr>
             <?php endwhile; ?>
