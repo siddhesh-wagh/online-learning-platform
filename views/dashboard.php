@@ -664,27 +664,33 @@ new Chart(document.getElementById('progressChart'), {
 <?php
 include '../includes/functions.php';
 
-// General Filters
+// 🧠 Filters
 $search = $_GET['search'] ?? '';
 $from   = $_GET['from'] ?? '';
 $to     = $_GET['to'] ?? '';
+
 $search = $conn->real_escape_string($search);
 $from   = $conn->real_escape_string($from);
 $to     = $conn->real_escape_string($to);
 
-// Query conditions
-$conditions = [];
-if ($search) $conditions[] = "(u.name LIKE '%$search%' OR u.email LIKE '%$search%' OR c.title LIKE '%$search%')";
-if ($from)   $conditions[] = "DATE(u.created_at) >= '$from'";
-if ($to)     $conditions[] = "DATE(u.created_at) <= '$to'";
-$where_users   = count($conditions) > 0 ? 'WHERE ' . implode(' AND ', $conditions) : '';
-$where_courses = $search ? "WHERE title LIKE '%$search%'" : '';
+// 🔍 Where Clauses for Pagination Lists
+$where_user = "WHERE 1";
+$where_course = "WHERE 1";
 
-// Date Ranges
+if ($search) {
+    $where_user .= " AND (name LIKE '%$search%' OR email LIKE '%$search%')";
+    $where_course .= " AND title LIKE '%$search%'";
+}
+if ($from && $to) {
+    $where_user .= " AND DATE(created_at) BETWEEN '$from' AND '$to'";
+    $where_course .= " AND DATE(created_at) BETWEEN '$from' AND '$to'";
+}
+
+// 📆 Dates
 $today = date('Y-m-d');
 $last7 = date('Y-m-d', strtotime('-7 days'));
 
-// Quick Stats
+// 📊 Quick Stats
 $user_count       = $conn->query("SELECT COUNT(*) AS total FROM users")->fetch_assoc()['total'];
 $instructor_count = $conn->query("SELECT COUNT(*) AS total FROM users WHERE role = 'instructor'")->fetch_assoc()['total'];
 $learner_count    = $conn->query("SELECT COUNT(*) AS total FROM users WHERE role = 'learner'")->fetch_assoc()['total'];
@@ -701,22 +707,44 @@ $week_courses   = $conn->query("SELECT COUNT(*) AS total FROM courses WHERE DATE
 $today_comments = $conn->query("SELECT COUNT(*) AS total FROM comments WHERE DATE(created_at) = '$today'")->fetch_assoc()['total'];
 $week_comments  = $conn->query("SELECT COUNT(*) AS total FROM comments WHERE DATE(created_at) >= '$last7'")->fetch_assoc()['total'];
 
-// Lists
-$where_user   = $search ? "WHERE name LIKE '%$search%' OR email LIKE '%$search%'" : "";
-$where_course = $search ? "WHERE title LIKE '%$search%'" : "";
-if ($from && $to) {
-  $where_user = "WHERE DATE(created_at) BETWEEN '$from' AND '$to'";
-  $where_course = "WHERE DATE(created_at) BETWEEN '$from' AND '$to'";
-}
-$recent_users    = $conn->query("SELECT name, email, created_at FROM users $where_user ORDER BY created_at DESC LIMIT 5");
-$recent_courses  = $conn->query("SELECT title, created_at FROM courses $where_course ORDER BY created_at DESC LIMIT 5");
-$recent_comments = $conn->query("SELECT c.content, c.created_at, u.name, co.title 
-                                 FROM comments c 
-                                 JOIN users u ON c.user_id = u.id 
-                                 JOIN courses co ON c.course_id = co.id 
-                                 ORDER BY c.created_at DESC LIMIT 5");
+$today_pdf = $conn->query("SELECT COUNT(*) AS total FROM courses WHERE file_path LIKE '%.pdf' AND DATE(created_at) = '$today'")->fetch_assoc()['total'];
+$today_video = $conn->query("SELECT COUNT(*) AS total FROM courses WHERE file_path LIKE '%.mp4' AND DATE(created_at) = '$today'")->fetch_assoc()['total'];
 
-// Logs Filter
+// 📄 Pagination Setup
+$users_per_page = 5;
+$courses_per_page = 5;
+$comments_per_page = 5;
+
+$user_page    = max(1, (int)($_GET['user_page'] ?? 1));
+$course_page  = max(1, (int)($_GET['course_page'] ?? 1));
+$comment_page = max(1, (int)($_GET['comment_page'] ?? 1));
+
+$user_offset    = ($user_page - 1) * $users_per_page;
+$course_offset  = ($course_page - 1) * $courses_per_page;
+$comment_offset = ($comment_page - 1) * $comments_per_page;
+
+// 🧮 Total Counts for Pagination
+$total_users    = $conn->query("SELECT COUNT(*) AS total FROM users $where_user")->fetch_assoc()['total'] ?? 0;
+$total_courses  = $conn->query("SELECT COUNT(*) AS total FROM courses $where_course")->fetch_assoc()['total'] ?? 0;
+$total_comments = $conn->query("SELECT COUNT(*) AS total FROM comments")->fetch_assoc()['total'] ?? 0;
+
+$total_user_pages    = ceil($total_users / $users_per_page);
+$total_course_pages  = ceil($total_courses / $courses_per_page);
+$total_comment_pages = ceil($total_comments / $comments_per_page);
+
+// 📋 Fetch Paginated Lists
+$recent_users = $conn->query("SELECT name, email, created_at FROM users $where_user ORDER BY created_at DESC LIMIT $users_per_page OFFSET $user_offset");
+$recent_courses = $conn->query("SELECT title, created_at FROM courses $where_course ORDER BY created_at DESC LIMIT $courses_per_page OFFSET $course_offset");
+$recent_comments = $conn->query("
+    SELECT c.content, c.created_at, u.name, co.title 
+    FROM comments c 
+    JOIN users u ON c.user_id = u.id 
+    JOIN courses co ON c.course_id = co.id 
+    ORDER BY c.created_at DESC 
+    LIMIT $comments_per_page OFFSET $comment_offset
+");
+
+// 🔐 Logs Filter
 $log_from = $_GET['log_from'] ?? '';
 $log_to   = $_GET['log_to'] ?? '';
 $log_role = $_GET['log_role'] ?? '';
@@ -739,7 +767,7 @@ $security_logs = $conn->query("
 ");
 ?>
 
-<!-- 📊 Cards -->
+<!-- 📊 Summary Cards -->
 <div class="row text-center mb-4">
   <?php foreach ([
     ['Total Users', $user_count, 'primary'],
@@ -751,8 +779,8 @@ $security_logs = $conn->query("
     ['🗨️ Total Comments', $total_comments, 'secondary'],
     ['Pending Approvals', $pending_count, 'danger']
   ] as [$label, $count, $color]): ?>
-    <div class="col-md-3 mb-3">
-      <div class="card border-<?= $color ?>">
+    <div class="col-md-3 col-sm-6 mb-3">
+      <div class="card border-<?= $color ?> shadow-sm">
         <div class="card-body">
           <h6 class="text-<?= $color ?>"><?= $label ?></h6>
           <p class="fs-4"><?= $count ?></p>
@@ -762,15 +790,15 @@ $security_logs = $conn->query("
   <?php endforeach; ?>
 </div>
 
-<!-- 📈 Charts Row (Medium Size) -->
+<!-- 📈 Analytics Charts Row -->
 <div class="row mb-4">
   <!-- 🧍 User Breakdown Chart -->
   <div class="col-md-6">
-    <div class="card h-100">
+    <div class="card h-100 shadow-sm">
       <div class="card-header bg-secondary text-white text-center py-2">
         📊 User & Course Distribution
       </div>
-      <div class="card-body text-center p-3">
+      <div class="card-body text-center">
         <canvas id="adminChart" height="180" style="max-height: 220px;"></canvas>
       </div>
     </div>
@@ -778,24 +806,21 @@ $security_logs = $conn->query("
 
   <!-- 📘 Course Composition Chart -->
   <div class="col-md-6">
-    <div class="card h-100">
+    <div class="card h-100 shadow-sm">
       <div class="card-header bg-dark text-white text-center py-2">
         📘 Course Asset Composition
       </div>
-      <div class="card-body text-center p-3">
+      <div class="card-body text-center">
         <canvas id="courseStatsChart" height="180" style="max-height: 220px;"></canvas>
       </div>
     </div>
   </div>
 </div>
 
-
-
-
-<!-- 🗓 Summary -->
+<!-- 📅 Summary Section -->
 <div class="row mb-4">
   <div class="col-md-6">
-    <div class="card border-success">
+    <div class="card border-success shadow-sm">
       <div class="card-header bg-success text-white">📅 Today</div>
       <div class="card-body">
         <p>👤 New Users: <strong><?= $today_users ?></strong></p>
@@ -805,7 +830,7 @@ $security_logs = $conn->query("
     </div>
   </div>
   <div class="col-md-6">
-    <div class="card border-info">
+    <div class="card border-info shadow-sm">
       <div class="card-header bg-info text-white">🗓 Last 7 Days</div>
       <div class="card-body">
         <p>👤 Users: <strong><?= $week_users ?></strong></p>
@@ -816,7 +841,8 @@ $security_logs = $conn->query("
   </div>
 </div>
 
-<!-- 🧭 Tabs (No Logs Tab Now) -->
+
+<!-- 🧭 Tabs -->
 <ul class="nav nav-tabs mt-4" role="tablist">
   <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tabUsers">👥 Users</a></li>
   <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabCourses">📚 Courses</a></li>
@@ -825,7 +851,7 @@ $security_logs = $conn->query("
 
 <!-- 📁 Tab Content -->
 <div class="tab-content p-3 border border-top-0">
-  <!-- Users -->
+  <!-- Users Tab -->
   <div class="tab-pane fade show active" id="tabUsers">
     <ul class="list-group">
       <?php while ($u = $recent_users->fetch_assoc()): ?>
@@ -835,9 +861,20 @@ $security_logs = $conn->query("
         </li>
       <?php endwhile; ?>
     </ul>
+    <?php if ($total_user_pages > 1): ?>
+      <nav class="mt-3">
+        <ul class="pagination justify-content-center">
+          <?php for ($i = 1; $i <= $total_user_pages; $i++): ?>
+            <li class="page-item <?= $i == $user_page ? 'active' : '' ?>">
+              <a class="page-link" href="?user_page=<?= $i ?>#tabUsers"><?= $i ?></a>
+            </li>
+          <?php endfor; ?>
+        </ul>
+      </nav>
+    <?php endif; ?>
   </div>
 
-  <!-- Courses -->
+  <!-- Courses Tab -->
   <div class="tab-pane fade" id="tabCourses">
     <ul class="list-group">
       <?php while ($c = $recent_courses->fetch_assoc()): ?>
@@ -847,9 +884,20 @@ $security_logs = $conn->query("
         </li>
       <?php endwhile; ?>
     </ul>
+    <?php if ($total_course_pages > 1): ?>
+      <nav class="mt-3">
+        <ul class="pagination justify-content-center">
+          <?php for ($i = 1; $i <= $total_course_pages; $i++): ?>
+            <li class="page-item <?= $i == $course_page ? 'active' : '' ?>">
+              <a class="page-link" href="?course_page=<?= $i ?>#tabCourses"><?= $i ?></a>
+            </li>
+          <?php endfor; ?>
+        </ul>
+      </nav>
+    <?php endif; ?>
   </div>
 
-  <!-- Comments -->
+  <!-- Comments Tab -->
   <div class="tab-pane fade" id="tabComments">
     <ul class="list-group">
       <?php while ($com = $recent_comments->fetch_assoc()): ?>
@@ -860,10 +908,21 @@ $security_logs = $conn->query("
         </li>
       <?php endwhile; ?>
     </ul>
+    <?php if ($total_comment_pages > 1): ?>
+      <nav class="mt-3">
+        <ul class="pagination justify-content-center">
+          <?php for ($i = 1; $i <= $total_comment_pages; $i++): ?>
+            <li class="page-item <?= $i == $comment_page ? 'active' : '' ?>">
+              <a class="page-link" href="?comment_page=<?= $i ?>#tabComments"><?= $i ?></a>
+            </li>
+          <?php endfor; ?>
+        </ul>
+      </nav>
+    <?php endif; ?>
   </div>
 </div>
 
-<!-- 🔐 Logs Section (Separate from Tabs) -->
+<!-- 🔐 Logs Section -->
 <hr class="my-5">
 <h4 class="mb-3">🔐 Activity Logs</h4>
 
@@ -908,6 +967,7 @@ $security_logs = $conn->query("
 <div id="logsTable" class="table-responsive">
   <p class="text-muted">Loading logs...</p>
 </div>
+
 
 
 <!-- Chart.js -->
