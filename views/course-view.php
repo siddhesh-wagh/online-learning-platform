@@ -4,13 +4,11 @@ include '../db-config.php';
 include '../includes/functions.php';
 
 if ($_SESSION['role'] !== 'learner') {
-    echo "Access denied.";
-    exit;
+    exit("Access denied.");
 }
 
 if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
-    echo "Invalid course ID.";
-    exit;
+    exit("Invalid course ID.");
 }
 
 $course_id = (int) $_GET['id'];
@@ -18,36 +16,38 @@ $user_id = $_SESSION['user_id'];
 $current_percent = 0;
 
 // Fetch course info
-$stmt = $conn->prepare("SELECT c.title, c.description, c.file_path, c.instructor_id, u.name AS instructor_name, u.email AS instructor_email
-                        FROM courses c
-                        JOIN users u ON c.instructor_id = u.id
-                        WHERE c.id = ?");
+$stmt = $conn->prepare("
+    SELECT c.title, c.description, c.file_path, c.instructor_id, 
+           u.name AS instructor_name, u.email AS instructor_email
+    FROM courses c
+    JOIN users u ON c.instructor_id = u.id
+    WHERE c.id = ?
+");
 $stmt->bind_param("i", $course_id);
 $stmt->execute();
 $course = $stmt->get_result()->fetch_assoc();
 
-if (!$course) {
-    echo "Course not found.";
-    exit;
-}
+if (!$course) exit("Course not found.");
 
 // Check enrollment
-$enrolled_stmt = $conn->prepare("SELECT progress_percent FROM course_progress WHERE user_id = ? AND course_id = ?");
+$enrolled_stmt = $conn->prepare("
+    SELECT progress_percent FROM course_progress WHERE user_id = ? AND course_id = ?
+");
 $enrolled_stmt->bind_param("ii", $user_id, $course_id);
 $enrolled_stmt->execute();
 $enrollment_result = $enrolled_stmt->get_result();
 $is_enrolled = $enrollment_result->num_rows > 0;
-
 if ($is_enrolled) {
     $current_percent = $enrollment_result->fetch_assoc()['progress_percent'];
 }
 
 // Handle POST actions
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
-    // Enroll
-    if (isset($_POST['enroll'])) {
-        $insert = $conn->prepare("INSERT INTO course_progress (user_id, course_id, progress_percent, status, updated_at)
-                                  VALUES (?, ?, 0, 'not_started', NOW())");
+    if (isset($_POST['enroll']) && !$is_enrolled) {
+        $insert = $conn->prepare("
+            INSERT INTO course_progress (user_id, course_id, progress_percent, status, updated_at)
+            VALUES (?, ?, 0, 'not_started', NOW())
+        ");
         $insert->bind_param("ii", $user_id, $course_id);
         $insert->execute();
         logAction($conn, $user_id, "Enrolled in course: " . $course['title']);
@@ -56,17 +56,20 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     }
 
     if (!$is_enrolled) {
-        echo "<div class='alert alert-danger'>You must enroll to interact with this course.</div>";
+        echo "<div class='alert alert-danger'>You must enroll to access this course.</div>";
         exit;
     }
 
-    // Update progress
+    // Progress
     if (isset($_POST['update_progress'])) {
         $percent = (int) $_POST['progress_percent'];
         if ($percent >= 0 && $percent <= 100) {
-            $stmt = $conn->prepare("UPDATE course_progress SET progress_percent = ?, status = ?, updated_at = NOW()
-                                    WHERE user_id = ? AND course_id = ?");
-            $status = $percent == 100 ? 'completed' : ($percent > 0 ? 'in_progress' : 'not_started');
+            $status = $percent === 100 ? 'completed' : ($percent > 0 ? 'in_progress' : 'not_started');
+            $stmt = $conn->prepare("
+                UPDATE course_progress 
+                SET progress_percent = ?, status = ?, updated_at = NOW()
+                WHERE user_id = ? AND course_id = ?
+            ");
             $stmt->bind_param("isii", $percent, $status, $user_id, $course_id);
             $stmt->execute();
             $current_percent = $percent;
@@ -76,8 +79,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     // Reset
     elseif (isset($_POST['reset_progress'])) {
-        $stmt = $conn->prepare("UPDATE course_progress SET progress_percent = 0, status = 'not_started', updated_at = NOW()
-                                WHERE user_id = ? AND course_id = ?");
+        $stmt = $conn->prepare("
+            UPDATE course_progress 
+            SET progress_percent = 0, status = 'not_started', updated_at = NOW()
+            WHERE user_id = ? AND course_id = ?
+        ");
         $stmt->bind_param("ii", $user_id, $course_id);
         $stmt->execute();
         $current_percent = 0;
@@ -85,7 +91,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     }
 
     // Comment
-    elseif (isset($_POST['comment'])) {
+    elseif (isset($_POST['comment']) && $is_enrolled) {
         $comment = trim($_POST['comment']);
         if (!empty($comment)) {
             $stmt = $conn->prepare("INSERT INTO comments (course_id, user_id, content) VALUES (?, ?, ?)");
@@ -93,6 +99,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $stmt->execute();
             logAction($conn, $user_id, "Commented on course: " . $course['title']);
 
+            // Notify instructor
             $notif = $conn->prepare("INSERT INTO notifications (user_id, message) VALUES (?, ?)");
             $message = $_SESSION['name'] . " commented on your course: " . $course['title'];
             $notif->bind_param("is", $course['instructor_id'], $message);
@@ -111,7 +118,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     }
 }
 
-// Fetch comments (paginated)
+// Comments (pagination)
 $comments_per_page = 5;
 $page = max(1, (int)($_GET['page'] ?? 1));
 $offset = ($page - 1) * $comments_per_page;
@@ -148,12 +155,14 @@ $comments_result = $comments_stmt->get_result();
     <a href="dashboard.php" class="btn btn-outline-secondary btn-sm">← Back to Dashboard</a>
   </div>
 
+  <!-- Always show description -->
   <p><strong>Instructor:</strong> <?= htmlspecialchars($course['instructor_name']) ?></p>
   <p><?= nl2br(htmlspecialchars($course['description'])) ?></p>
 
+  <!-- Enrollment required for materials -->
   <?php if (!$is_enrolled): ?>
     <div class="alert alert-warning text-center">
-      <p>🔒 You are not enrolled in this course.</p>
+      <p>🔒 You are not enrolled in this course yet.</p>
       <form method="POST">
         <button type="submit" name="enroll" class="btn btn-success">📥 Enroll Now</button>
       </form>
@@ -226,6 +235,7 @@ $comments_result = $comments_stmt->get_result();
           <p><?= nl2br(htmlspecialchars($comment['content'])) ?></p>
         </div>
       <?php endwhile; ?>
+
       <?php if ($total_pages > 1): ?>
         <nav><ul class="pagination">
           <?php if ($page > 1): ?>
