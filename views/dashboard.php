@@ -841,86 +841,26 @@ $security_logs = $conn->query("
   </div>
 </div>
 
-
 <!-- 🧭 Tabs -->
 <ul class="nav nav-tabs mt-4" role="tablist">
-  <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tabUsers">👥 Users</a></li>
-  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabCourses">📚 Courses</a></li>
-  <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabComments">💬 Comments</a></li>
+  <li class="nav-item">
+    <a class="nav-link active" data-tab="users" href="#tabUsers" data-bs-toggle="tab">👥 Users</a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" data-tab="courses" href="#tabCourses" data-bs-toggle="tab">📚 Courses</a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" data-tab="comments" href="#tabComments" data-bs-toggle="tab">💬 Comments</a>
+  </li>
 </ul>
 
-<!-- 📁 Tab Content -->
+<!-- 📁 Tab Content (dynamically loaded) -->
 <div class="tab-content p-3 border border-top-0">
-  <!-- Users Tab -->
-  <div class="tab-pane fade show active" id="tabUsers">
-    <ul class="list-group">
-      <?php while ($u = $recent_users->fetch_assoc()): ?>
-        <li class="list-group-item">
-          <?= htmlspecialchars($u['name']) ?> - <?= htmlspecialchars($u['email']) ?>
-          <small class="float-end text-muted"><?= $u['created_at'] ?></small>
-        </li>
-      <?php endwhile; ?>
-    </ul>
-    <?php if ($total_user_pages > 1): ?>
-      <nav class="mt-3">
-        <ul class="pagination justify-content-center">
-          <?php for ($i = 1; $i <= $total_user_pages; $i++): ?>
-            <li class="page-item <?= $i == $user_page ? 'active' : '' ?>">
-              <a class="page-link" href="?user_page=<?= $i ?>#tabUsers"><?= $i ?></a>
-            </li>
-          <?php endfor; ?>
-        </ul>
-      </nav>
-    <?php endif; ?>
-  </div>
-
-  <!-- Courses Tab -->
-  <div class="tab-pane fade" id="tabCourses">
-    <ul class="list-group">
-      <?php while ($c = $recent_courses->fetch_assoc()): ?>
-        <li class="list-group-item">
-          <?= htmlspecialchars($c['title']) ?>
-          <small class="float-end text-muted"><?= $c['created_at'] ?></small>
-        </li>
-      <?php endwhile; ?>
-    </ul>
-    <?php if ($total_course_pages > 1): ?>
-      <nav class="mt-3">
-        <ul class="pagination justify-content-center">
-          <?php for ($i = 1; $i <= $total_course_pages; $i++): ?>
-            <li class="page-item <?= $i == $course_page ? 'active' : '' ?>">
-              <a class="page-link" href="?course_page=<?= $i ?>#tabCourses"><?= $i ?></a>
-            </li>
-          <?php endfor; ?>
-        </ul>
-      </nav>
-    <?php endif; ?>
-  </div>
-
-  <!-- Comments Tab -->
-  <div class="tab-pane fade" id="tabComments">
-    <ul class="list-group">
-      <?php while ($com = $recent_comments->fetch_assoc()): ?>
-        <li class="list-group-item">
-          <?= htmlspecialchars($com['name']) ?> on <strong><?= htmlspecialchars($com['title']) ?></strong><br>
-          <em><?= htmlspecialchars($com['content']) ?></em>
-          <small class="text-muted float-end"><?= $com['created_at'] ?></small>
-        </li>
-      <?php endwhile; ?>
-    </ul>
-    <?php if ($total_comment_pages > 1): ?>
-      <nav class="mt-3">
-        <ul class="pagination justify-content-center">
-          <?php for ($i = 1; $i <= $total_comment_pages; $i++): ?>
-            <li class="page-item <?= $i == $comment_page ? 'active' : '' ?>">
-              <a class="page-link" href="?comment_page=<?= $i ?>#tabComments"><?= $i ?></a>
-            </li>
-          <?php endfor; ?>
-        </ul>
-      </nav>
-    <?php endif; ?>
-  </div>
+  <div class="tab-pane fade show active" id="tabUsers">Loading...</div>
+  <div class="tab-pane fade" id="tabCourses">Loading...</div>
+  <div class="tab-pane fade" id="tabComments">Loading...</div>
 </div>
+
 
 <!-- 🔐 Logs Section -->
 <hr class="my-5">
@@ -1136,6 +1076,30 @@ new Chart(document.getElementById('courseStatsChart'), {
 
 
 const logsPath = '/online-learning-platform/views/load-logs.php';
+
+function loadTab(tab, page = 1) {
+  const target = document.querySelector(`#tab${tab.charAt(0).toUpperCase() + tab.slice(1)}`);
+  target.innerHTML = '<p>Loading...</p>';
+
+fetch(`/online-learning-platform/views/load-tab-data.php?tab=${tab}&page=${page}`)
+    .then(res => res.text())
+    .then(html => {
+      target.innerHTML = html;
+    });
+}
+
+// Load default active tab
+document.addEventListener('DOMContentLoaded', () => {
+  loadTab('users');
+});
+
+// Bind tab clicks
+document.querySelectorAll('[data-tab]').forEach(tab => {
+  tab.addEventListener('click', function () {
+    const tabName = this.getAttribute('data-tab');
+    loadTab(tabName);
+  });
+});
 
 // 📥 Export Logs (CSV or PDF)
 function exportLogs(format) {
