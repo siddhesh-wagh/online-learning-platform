@@ -1,10 +1,17 @@
 <?php
-require '../vendor/autoload.php';
-include '../db-config.php';
-include '../includes/functions.php';
+require_once __DIR__ . '/../vendor/autoload.php';
+include __DIR__ . '/../db-config.php';
+include __DIR__ . '/../includes/functions.php';
 
 use Dompdf\Dompdf;
 use Dompdf\Options;
+
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
+
+
 
 // Filters
 $log_from    = $_GET['log_from'] ?? '';
@@ -58,37 +65,43 @@ function formatRow($row) {
         'time'   => date("h:i A", $ts)
     ];
 }
-
-// ==== CSV Export ====
+// ==== CSV Export using PhpSpreadsheet ====
 if ($export === 'csv') {
-    // Add UTF-8 BOM so Excel handles UTF-8 correctly
-    header('Content-Encoding: UTF-8');
-    header('Content-Type: text/csv; charset=UTF-8');
-    header('Content-Disposition: attachment; filename="logs.csv"');
-    echo "\xEF\xBB\xBF"; // UTF-8 BOM
+    $spreadsheet = new Spreadsheet();
+    $sheet = $spreadsheet->getActiveSheet();
 
-    $out = fopen('php://output', 'w');
+    // Headers
+    $headers = ['Name', 'Email', 'Role', 'Action', 'Date', 'Time'];
+    $sheet->fromArray($headers, NULL, 'A1');
 
-    // Header row
-    fputcsv($out, ['Name', 'Email', 'Role', 'Action', 'Date', 'Time']);
-
+    // Data rows
+    $rowIndex = 2;
     while ($row = $result->fetch_assoc()) {
         $r = formatRow($row);
-
-        // Ensure proper formatting for Excel (explicitly format date/time as string)
-        $excelRow = [
-            $r['user'],
-            $r['email'],
-            $r['role'],
-            $r['action'],
-            "\t" . $r['date'], // tab prefix forces Excel to treat it as text
-            "\t" . $r['time']
-        ];
-
-        fputcsv($out, $excelRow);
+        $sheet->fromArray([$r['user'], $r['email'], $r['role'], $r['action'], $r['date'], $r['time']], NULL, "A$rowIndex");
+        $rowIndex++;
     }
 
-    fclose($out);
+    // Auto-fit all columns
+    foreach (range('A', 'F') as $col) {
+        $sheet->getColumnDimension($col)->setAutoSize(true);
+    }
+
+    // Header styling
+    $sheet->getStyle('A1:F1')->getFont()->setBold(true);
+    $sheet->getStyle('A1:F1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+    // Format date column (E) and time column (F)
+    $sheet->getStyle("E2:E$rowIndex")->getNumberFormat()->setFormatCode('yyyy-mm-dd');
+    $sheet->getStyle("F2:F$rowIndex")->getNumberFormat()->setFormatCode('hh:mm AM/PM');
+
+    // Output
+    header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    header('Content-Disposition: attachment; filename="logs.xlsx"');
+    header('Cache-Control: max-age=0');
+
+    $writer = new Xlsx($spreadsheet);
+    $writer->save('php://output');
     exit;
 }
 
