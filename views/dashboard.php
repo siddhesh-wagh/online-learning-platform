@@ -1153,12 +1153,17 @@ function exportLogs(format) {
   const form = document.getElementById('logFilterForm');
   const data = new FormData(form);
   const url = new URL('load-logs.php', window.location.origin);
+
   url.searchParams.set('export', format);
+
   for (const [key, val] of data.entries()) {
     url.searchParams.set(key, val);
   }
+
+  url.searchParams.delete('page'); // 🔥 important
   window.open(url.toString(), '_blank');
 }
+
 
 // 🔄 Load logs
 function loadLogs(queryParams = '') {
@@ -1196,6 +1201,15 @@ document.getElementById('clearLogsBtn').addEventListener('click', function () {
 document.addEventListener('DOMContentLoaded', () => {
   loadLogs();
 });
+
+function loadLogsPaginated(page = 1) {
+  const form = document.getElementById('logFilterForm');
+  const data = new FormData(form);
+  data.set('page', page); // pagination
+  const query = new URLSearchParams(data).toString();
+  loadLogs(query);
+}
+
 </script>
 
 <?php endif; ?>
