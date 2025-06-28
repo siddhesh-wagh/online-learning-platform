@@ -927,14 +927,17 @@ $security_logs = $conn->query("
 <h4 class="mb-3">🔐 Activity Logs</h4>
 
 <!-- 🔍 Filters for Logs -->
-<form id="logFilterForm" class="row g-2 mb-3">
+<form id="logFilterForm" class="row g-2 mb-3 align-items-end">
   <div class="col-md-2">
+    <label class="form-label">From</label>
     <input type="date" name="log_from" class="form-control" value="<?= htmlspecialchars($log_from) ?>">
   </div>
   <div class="col-md-2">
+    <label class="form-label">To</label>
     <input type="date" name="log_to" class="form-control" value="<?= htmlspecialchars($log_to) ?>">
   </div>
   <div class="col-md-2">
+    <label class="form-label">Role</label>
     <select name="log_role" class="form-select">
       <option value="">All Roles</option>
       <option value="admin" <?= $log_role === 'admin' ? 'selected' : '' ?>>Admin</option>
@@ -943,15 +946,16 @@ $security_logs = $conn->query("
     </select>
   </div>
   <div class="col-md-3">
-    <input type="text" name="log_action" class="form-control" placeholder="Search action..." value="<?= htmlspecialchars($log_action) ?>">
+    <label class="form-label">Action Contains</label>
+    <input type="text" name="log_action" class="form-control" placeholder="e.g. login, update..." value="<?= htmlspecialchars($log_action) ?>">
   </div>
   <div class="col-md-3">
-  <input type="text" name="log_search" class="form-control" placeholder="Search by name, email or action..." value="<?= htmlspecialchars($_GET['log_search'] ?? '') ?>">
-</div>
-
-  <div class="col-md-3 d-flex gap-2">
-    <button type="submit" class="btn btn-outline-primary w-50">Filter Logs</button>
-    <button type="button" class="btn btn-outline-secondary w-50" id="clearLogsBtn">Clear</button>
+    <label class="form-label">Name / Email / Action</label>
+    <input type="text" name="log_search" class="form-control" placeholder="Search by name, email or action..." value="<?= htmlspecialchars($_GET['log_search'] ?? '') ?>">
+  </div>
+  <div class="col-md-3 mt-2 d-flex gap-2">
+    <button type="submit" class="btn btn-outline-primary w-50">🔍 Filter</button>
+    <button type="button" class="btn btn-outline-secondary w-50" id="clearLogsBtn">❌ Clear</button>
   </div>
 </form>
 
@@ -961,23 +965,17 @@ $security_logs = $conn->query("
     <span id="logCountDisplay" class="text-muted small">Showing 0–0 of 0 logs</span>
   </div>
   <div class="btn-group">
-    <button type="button" class="btn btn-sm btn-outline-success" onclick="exportLogs('csv')">
-      ⬇️ Export CSV
-    </button>
-    <button type="button" class="btn btn-sm btn-outline-danger" onclick="exportLogs('pdf')">
-      ⬇️ Export PDF
-    </button>
-    <button type="button" class="btn btn-sm btn-outline-dark" onclick="printLogs()">
-      🖨️ Print
-    </button>
+    <button type="button" class="btn btn-sm btn-outline-success" onclick="exportLogs('csv')">⬇️ Export CSV</button>
+    <button type="button" class="btn btn-sm btn-outline-danger" onclick="exportLogs('pdf')">⬇️ Export PDF</button>
+    <button type="button" onclick="printLogs()" class="btn btn-sm btn-outline-dark">🖨️ Print</button>
   </div>
 </div>
-
 
 <!-- 📋 Logs Table Placeholder -->
 <div id="logsTable" class="table-responsive">
   <p class="text-muted">Loading logs...</p>
 </div>
+
 
 
 

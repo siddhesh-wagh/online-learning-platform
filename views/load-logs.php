@@ -6,50 +6,52 @@ include '../includes/functions.php';
 use Dompdf\Dompdf;
 use Dompdf\Options;
 
-// 🔍 Filters
-$log_from   = $_GET['log_from'] ?? '';
-$log_to     = $_GET['log_to'] ?? '';
-$log_role   = $_GET['log_role'] ?? '';
-$log_action = $_GET['log_action'] ?? '';
-$log_search = $_GET['log_search'] ?? '';
-$export     = $_GET['export'] ?? '';
-$page       = max(1, (int) ($_GET['page'] ?? 1));
-$limit      = ($export !== '') ? 10000 : 25;
-$offset     = ($page - 1) * $limit;
+// Filters
+$log_from    = $_GET['log_from'] ?? '';
+$log_to      = $_GET['log_to'] ?? '';
+$log_role    = $_GET['log_role'] ?? '';
+$log_action  = $_GET['log_action'] ?? '';
+$log_search  = $_GET['log_search'] ?? '';
+$export      = $_GET['export'] ?? '';
+$page        = max(1, (int) ($_GET['page'] ?? 1));
+$limit       = ($export !== '') ? 10000 : 25;
+$offset      = ($page - 1) * $limit;
 
-// 🧱 WHERE clause
+// WHERE clause
 $conditions = [];
-if ($log_from)   $conditions[] = "DATE(l.created_at) >= '" . $conn->real_escape_string($log_from) . "'";
-if ($log_to)     $conditions[] = "DATE(l.created_at) <= '" . $conn->real_escape_string($log_to) . "'";
-if ($log_role)   $conditions[] = "u.role = '" . $conn->real_escape_string($log_role) . "'";
-if ($log_action) $conditions[] = "l.action LIKE '%" . $conn->real_escape_string($log_action) . "%'";
-if ($log_search) {
-    $search_safe = $conn->real_escape_string($log_search);
-    $conditions[] = "(u.name LIKE '%$search_safe%' OR u.email LIKE '%$search_safe%' OR l.action LIKE '%$search_safe%')";
+if (!empty($log_from))   $conditions[] = "DATE(l.created_at) >= '" . $conn->real_escape_string($log_from) . "'";
+if (!empty($log_to))     $conditions[] = "DATE(l.created_at) <= '" . $conn->real_escape_string($log_to) . "'";
+if (!empty($log_role))   $conditions[] = "u.role = '" . $conn->real_escape_string($log_role) . "'";
+if (!empty($log_action)) $conditions[] = "l.action LIKE '%" . $conn->real_escape_string($log_action) . "%'";
+if (!empty($log_search)) {
+    $safe_search = $conn->real_escape_string($log_search);
+    $conditions[] = "(u.name LIKE '%$safe_search%' OR u.email LIKE '%$safe_search%' OR l.action LIKE '%$safe_search%')";
 }
+
 $where = $conditions ? "WHERE " . implode(" AND ", $conditions) : "";
 
-// 🔢 Total logs
+// Total count
 $total_sql = "SELECT COUNT(*) AS total FROM logs l JOIN users u ON l.user_id = u.id $where";
 $total_res = $conn->query($total_sql);
 $total = $total_res ? (int) $total_res->fetch_assoc()['total'] : 0;
 
-// 📦 Logs data
+// Fetch logs
 $data_sql = "
-  SELECT l.action, l.created_at, u.name, u.role 
-  FROM logs l 
-  JOIN users u ON l.user_id = u.id 
-  $where 
-  ORDER BY l.created_at DESC 
-  LIMIT $limit OFFSET $offset
+    SELECT l.action, l.created_at, u.name, u.email, u.role 
+    FROM logs l 
+    JOIN users u ON l.user_id = u.id 
+    $where 
+    ORDER BY l.created_at DESC 
+    LIMIT $limit OFFSET $offset
 ";
 $result = $conn->query($data_sql);
 
-// ✨ Helpers
+// Format function
 function formatRow($row) {
     $ts = strtotime($row['created_at']);
     return [
         'user'   => htmlspecialchars($row['name']),
+        'email'  => htmlspecialchars($row['email']),
         'role'   => htmlspecialchars($row['role']),
         'action' => htmlspecialchars($row['action']),
         'date'   => date("Y-m-d", $ts),
@@ -57,33 +59,50 @@ function formatRow($row) {
     ];
 }
 
-// ==========================
-// 📤 CSV Export
-// ==========================
+// ==== CSV Export ====
 if ($export === 'csv') {
-    header('Content-Type: text/csv');
+    // Add UTF-8 BOM so Excel handles UTF-8 correctly
+    header('Content-Encoding: UTF-8');
+    header('Content-Type: text/csv; charset=UTF-8');
     header('Content-Disposition: attachment; filename="logs.csv"');
+    echo "\xEF\xBB\xBF"; // UTF-8 BOM
+
     $out = fopen('php://output', 'w');
-    fputcsv($out, ['User', 'Role', 'Action', 'Date', 'Time']);
+
+    // Header row
+    fputcsv($out, ['Name', 'Email', 'Role', 'Action', 'Date', 'Time']);
+
     while ($row = $result->fetch_assoc()) {
         $r = formatRow($row);
-        fputcsv($out, [$r['user'], $r['role'], $r['action'], $r['date'], $r['time']]);
+
+        // Ensure proper formatting for Excel (explicitly format date/time as string)
+        $excelRow = [
+            $r['user'],
+            $r['email'],
+            $r['role'],
+            $r['action'],
+            "\t" . $r['date'], // tab prefix forces Excel to treat it as text
+            "\t" . $r['time']
+        ];
+
+        fputcsv($out, $excelRow);
     }
+
     fclose($out);
     exit;
 }
 
-// ==========================
-// 🧾 PDF Export
-// ==========================
+
+// ==== PDF Export ====
 if ($export === 'pdf') {
     $html = "<h2 style='text-align:center;'>Activity Logs</h2>
     <table border='1' cellpadding='6' cellspacing='0' width='100%'>
-    <tr><th>User</th><th>Role</th><th>Action</th><th>Date</th><th>Time</th></tr>";
+    <tr><th>Name</th><th>Email</th><th>Role</th><th>Action</th><th>Date</th><th>Time</th></tr>";
     while ($row = $result->fetch_assoc()) {
         $r = formatRow($row);
         $html .= "<tr>
             <td>{$r['user']}</td>
+            <td>{$r['email']}</td>
             <td>{$r['role']}</td>
             <td>{$r['action']}</td>
             <td>{$r['date']}</td>
@@ -91,19 +110,18 @@ if ($export === 'pdf') {
         </tr>";
     }
     $html .= "</table>";
+
     $options = new Options();
     $options->set('defaultFont', 'Arial');
     $dompdf = new Dompdf($options);
     $dompdf->loadHtml($html);
-    $dompdf->setPaper('A4', 'portrait');
+    $dompdf->setPaper('A4', 'landscape');
     $dompdf->render();
     $dompdf->stream("logs.pdf", ["Attachment" => false]);
     exit;
 }
 
-// ==========================
-// 🖨️ Print View
-// ==========================
+// ==== Print View ====
 if ($export === 'print') {
     echo "<html><head><title>Activity Logs</title>
     <style>
@@ -116,9 +134,7 @@ if ($export === 'print') {
     <h3>Activity Logs</h3>";
 }
 
-// ==========================
-// 📋 HTML Table (Screen/Print)
-// ==========================
+// ==== HTML Output ====
 $from = ($total > 0) ? ($offset + 1) : 0;
 $to   = ($total > 0) ? min($offset + $limit, $total) : 0;
 
@@ -128,7 +144,7 @@ if (!$export) {
 
 echo "<table class='table table-bordered table-sm align-middle'>
 <thead class='table-light'>
-<tr><th>User</th><th>Role</th><th>Action</th><th>Date</th><th>Time</th></tr>
+<tr><th>Name</th><th>Email</th><th>Role</th><th>Action</th><th>Date</th><th>Time</th></tr>
 </thead><tbody>";
 
 if ($result && $result->num_rows > 0) {
@@ -136,6 +152,7 @@ if ($result && $result->num_rows > 0) {
         $r = formatRow($row);
         echo "<tr>
             <td>{$r['user']}</td>
+            <td>{$r['email']}</td>
             <td><span class='badge bg-secondary'>{$r['role']}</span></td>
             <td>{$r['action']}</td>
             <td>{$r['date']}</td>
@@ -143,7 +160,7 @@ if ($result && $result->num_rows > 0) {
         </tr>";
     }
 } else {
-    echo "<tr><td colspan='5' class='text-center text-muted'>No logs found.</td></tr>";
+    echo "<tr><td colspan='6' class='text-center text-muted'>No logs found.</td></tr>";
 }
 echo "</tbody></table>";
 
@@ -152,9 +169,7 @@ if ($export === 'print') {
     exit;
 }
 
-// ==========================
-// 📄 Pagination Controls
-// ==========================
+// ==== Pagination ====
 if (!$export) {
     $total_pages = ceil($total / 25);
     if ($total_pages > 1) {
