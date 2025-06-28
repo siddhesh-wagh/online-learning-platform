@@ -957,11 +957,18 @@ $security_logs = $conn->query("
     <span id="logCountDisplay" class="text-muted small">Showing 0–0 of 0 logs</span>
   </div>
   <div class="btn-group">
-    <button type="button" class="btn btn-sm btn-outline-success" onclick="exportLogs('csv')">⬇️ Export CSV</button>
-    <button type="button" class="btn btn-sm btn-outline-danger" onclick="exportLogs('pdf')">⬇️ Export PDF</button>
-    <button type="button" onclick="printLogs()" class="btn btn-sm btn-outline-dark">🖨️ Print</button>
+    <button type="button" class="btn btn-sm btn-outline-success" onclick="exportLogs('csv')">
+      ⬇️ Export CSV
+    </button>
+    <button type="button" class="btn btn-sm btn-outline-danger" onclick="exportLogs('pdf')">
+      ⬇️ Export PDF
+    </button>
+    <button type="button" class="btn btn-sm btn-outline-dark" onclick="printLogs()">
+      🖨️ Print
+    </button>
   </div>
 </div>
+
 
 <!-- 📋 Logs Table Placeholder -->
 <div id="logsTable" class="table-responsive">
@@ -1137,10 +1144,10 @@ function exportLogs(format) {
   url.searchParams.set('export', format);
 
   for (const [key, val] of data.entries()) {
-    if (val) url.searchParams.set(key, val); // skip empty values
+    if (val) url.searchParams.set(key, val); // only non-empty
   }
 
-  url.searchParams.delete('page'); // get all logs when exporting
+  url.searchParams.delete('page'); // export all logs
   window.open(url.toString(), '_blank');
 }
 
@@ -1169,12 +1176,15 @@ function printLogs() {
           th, td { padding: 8px; border: 1px solid #ccc; text-align: left; }
           th { background-color: #f9f9f9; }
         </style></head><body>
-        <h3>Activity Logs</h3>
         ${content}
         </body></html>
       `);
       printWin.document.close();
       printWin.print();
+    })
+    .catch(err => {
+      alert("Failed to load printable content.");
+      console.error(err);
     });
 }
 
@@ -1185,10 +1195,23 @@ function loadLogs(queryParams = '') {
     .then(res => res.text())
     .then(html => {
       document.getElementById('logsTable').innerHTML = html;
+
+      // Update count display from hidden logMeta span
+      const meta = document.getElementById('logMeta');
+      if (meta) {
+        const from = meta.getAttribute('data-from') || 0;
+        const to = meta.getAttribute('data-to') || 0;
+        const total = meta.getAttribute('data-total') || 0;
+        updateLogCount(from, to, total);
+      }
+    })
+    .catch(err => {
+      console.error("Error loading logs:", err);
+      document.getElementById('logsTable').innerHTML = `<p class="text-danger">Failed to load logs. Please try again.</p>`;
     });
 }
 
-// 🔢 Update "Showing X–Y of Z logs" text
+// 🔢 Update "Showing X–Y of Z logs"
 function updateLogCount(from, to, total) {
   const el = document.getElementById("logCountDisplay");
   if (el) {
@@ -1196,7 +1219,7 @@ function updateLogCount(from, to, total) {
   }
 }
 
-// 🔎 Filter form submission
+// 🔍 Filter form submit
 document.getElementById('logFilterForm').addEventListener('submit', function (e) {
   e.preventDefault();
   const formData = new FormData(this);
@@ -1207,22 +1230,23 @@ document.getElementById('logFilterForm').addEventListener('submit', function (e)
 // ❌ Clear filters
 document.getElementById('clearLogsBtn').addEventListener('click', function () {
   document.getElementById('logFilterForm').reset();
-  loadLogs(); // Reload full logs
+  loadLogs(); // load all logs again
 });
 
-// 📄 Pagination click handler
+// 🔁 Pagination click handler
 function loadLogsPaginated(page = 1) {
   const form = document.getElementById('logFilterForm');
   const data = new FormData(form);
-  data.set('page', page); // override/add page
+  data.set('page', page);
   const query = new URLSearchParams(data).toString();
   loadLogs(query);
 }
 
-// 🚀 Initial logs load
+// 🚀 Initial load
 document.addEventListener('DOMContentLoaded', () => {
   loadLogs();
 });
+
 
 </script>
 
