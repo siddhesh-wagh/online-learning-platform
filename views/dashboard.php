@@ -1126,48 +1126,61 @@ new Chart(document.getElementById('courseStatsChart'), {
 
 
 
+const logsPath = '/online-learning-platform/views/load-logs.php';
 
-// 🖨 Print Logs
-function printLogs() {
-  const content = document.getElementById('logsTable').innerHTML;
-  const printWin = window.open('', '', 'width=1000,height=600');
-  printWin.document.write(`
-    <html><head><title>Activity Logs</title>
-    <style>
-      body { font-family: Arial; margin: 20px; }
-      h3 { text-align: center; }
-      table { width: 100%; border-collapse: collapse; }
-      th, td { padding: 8px; border: 1px solid #ccc; text-align: left; }
-      th { background-color: #f9f9f9; }
-    </style></head><body>
-    <h3>Activity Logs</h3>
-    ${content}
-    </body></html>
-  `);
-  printWin.document.close();
-  printWin.print();
-}
-
-// 📥 Export Logs (CSV/PDF)
+// 📥 Export Logs (CSV or PDF)
 function exportLogs(format) {
   const form = document.getElementById('logFilterForm');
   const data = new FormData(form);
-  const url = new URL('load-logs.php', window.location.origin);
+  const url = new URL(logsPath, window.location.origin);
 
   url.searchParams.set('export', format);
 
   for (const [key, val] of data.entries()) {
-    url.searchParams.set(key, val);
+    if (val) url.searchParams.set(key, val); // skip empty values
   }
 
-  url.searchParams.delete('page'); // 🔥 important
+  url.searchParams.delete('page'); // get all logs when exporting
   window.open(url.toString(), '_blank');
 }
 
+// 🖨️ Print Logs (All Pages)
+function printLogs() {
+  const form = document.getElementById('logFilterForm');
+  const data = new FormData(form);
+  const url = new URL(logsPath, window.location.origin);
 
-// 🔄 Load logs
+  for (const [key, val] of data.entries()) {
+    if (val) url.searchParams.set(key, val);
+  }
+
+  url.searchParams.set('export', 'print');
+
+  fetch(url.toString())
+    .then(res => res.text())
+    .then(content => {
+      const printWin = window.open('', '', 'width=1000,height=600');
+      printWin.document.write(`
+        <html><head><title>Activity Logs</title>
+        <style>
+          body { font-family: Arial; margin: 20px; }
+          h3 { text-align: center; }
+          table { width: 100%; border-collapse: collapse; }
+          th, td { padding: 8px; border: 1px solid #ccc; text-align: left; }
+          th { background-color: #f9f9f9; }
+        </style></head><body>
+        <h3>Activity Logs</h3>
+        ${content}
+        </body></html>
+      `);
+      printWin.document.close();
+      printWin.print();
+    });
+}
+
+// 🔁 Load logs (initial or filtered)
 function loadLogs(queryParams = '') {
-  const url = 'load-logs.php' + (queryParams ? '?' + queryParams : '');
+  const url = logsPath + (queryParams ? '?' + queryParams : '');
   fetch(url)
     .then(res => res.text())
     .then(html => {
@@ -1175,7 +1188,7 @@ function loadLogs(queryParams = '') {
     });
 }
 
-// 🔢 Update log count display
+// 🔢 Update "Showing X–Y of Z logs" text
 function updateLogCount(from, to, total) {
   const el = document.getElementById("logCountDisplay");
   if (el) {
@@ -1183,7 +1196,7 @@ function updateLogCount(from, to, total) {
   }
 }
 
-// 📄 Handle filter submit
+// 🔎 Filter form submission
 document.getElementById('logFilterForm').addEventListener('submit', function (e) {
   e.preventDefault();
   const formData = new FormData(this);
@@ -1194,21 +1207,22 @@ document.getElementById('logFilterForm').addEventListener('submit', function (e)
 // ❌ Clear filters
 document.getElementById('clearLogsBtn').addEventListener('click', function () {
   document.getElementById('logFilterForm').reset();
-  loadLogs(); // Reset to all logs
+  loadLogs(); // Reload full logs
 });
 
-// 🔃 Initial load
-document.addEventListener('DOMContentLoaded', () => {
-  loadLogs();
-});
-
+// 📄 Pagination click handler
 function loadLogsPaginated(page = 1) {
   const form = document.getElementById('logFilterForm');
   const data = new FormData(form);
-  data.set('page', page); // pagination
+  data.set('page', page); // override/add page
   const query = new URLSearchParams(data).toString();
   loadLogs(query);
 }
+
+// 🚀 Initial logs load
+document.addEventListener('DOMContentLoaded', () => {
+  loadLogs();
+});
 
 </script>
 
