@@ -11,6 +11,7 @@ $log_from   = $_GET['log_from'] ?? '';
 $log_to     = $_GET['log_to'] ?? '';
 $log_role   = $_GET['log_role'] ?? '';
 $log_action = $_GET['log_action'] ?? '';
+$log_search = $_GET['log_search'] ?? '';
 $export     = $_GET['export'] ?? '';
 $page       = max(1, (int) ($_GET['page'] ?? 1));
 $limit      = ($export !== '') ? 10000 : 25;
@@ -22,6 +23,10 @@ if ($log_from)   $conditions[] = "DATE(l.created_at) >= '" . $conn->real_escape_
 if ($log_to)     $conditions[] = "DATE(l.created_at) <= '" . $conn->real_escape_string($log_to) . "'";
 if ($log_role)   $conditions[] = "u.role = '" . $conn->real_escape_string($log_role) . "'";
 if ($log_action) $conditions[] = "l.action LIKE '%" . $conn->real_escape_string($log_action) . "%'";
+if ($log_search) {
+    $search_safe = $conn->real_escape_string($log_search);
+    $conditions[] = "(u.name LIKE '%$search_safe%' OR u.email LIKE '%$search_safe%' OR l.action LIKE '%$search_safe%')";
+}
 $where = $conditions ? "WHERE " . implode(" AND ", $conditions) : "";
 
 // 🔢 Total logs

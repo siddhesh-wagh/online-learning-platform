@@ -945,6 +945,10 @@ $security_logs = $conn->query("
   <div class="col-md-3">
     <input type="text" name="log_action" class="form-control" placeholder="Search action..." value="<?= htmlspecialchars($log_action) ?>">
   </div>
+  <div class="col-md-3">
+  <input type="text" name="log_search" class="form-control" placeholder="Search by name, email or action..." value="<?= htmlspecialchars($_GET['log_search'] ?? '') ?>">
+</div>
+
   <div class="col-md-3 d-flex gap-2">
     <button type="submit" class="btn btn-outline-primary w-50">Filter Logs</button>
     <button type="button" class="btn btn-outline-secondary w-50" id="clearLogsBtn">Clear</button>
