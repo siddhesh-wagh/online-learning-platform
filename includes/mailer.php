@@ -8,36 +8,40 @@ require __DIR__ . '/../vendor/autoload.php';
 $dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/../');
 $dotenv->load();
 
-function sendEmail($to, $subject, $body) {
+function sendEmail($to, $subject, $body, $conn = null, $user_id = null) {
     $mail = new PHPMailer(true);
 
     try {
-        // SMTP configuration
         $mail->isSMTP();
         $mail->Host       = 'smtp.gmail.com';
         $mail->SMTPAuth   = true;
-        $mail->Username   = $_ENV['MAIL_USERNAME'];  // loaded from .env
-        $mail->Password   = $_ENV['MAIL_PASSWORD'];  // loaded from .env
+        $mail->Username   = $_ENV['MAIL_USERNAME'];
+        $mail->Password   = $_ENV['MAIL_PASSWORD'];
         $mail->SMTPSecure = 'tls';
         $mail->Port       = 587;
 
-        // Email content
         $mail->setFrom($_ENV['MAIL_USERNAME'], 'Online Learning Platform');
-$mail->addAddress($to);
-$mail->isHTML(true); // ✅ Enable HTML email
-$mail->Subject = $subject;
-$mail->Body    = $body;
-$mail->AltBody = strip_tags($body); // For old email clients
-
-
+        $mail->addAddress($to);
+        $mail->isHTML(true);
+        $mail->Subject = $subject;
+        $mail->Body    = $body;
+        $mail->AltBody = strip_tags($body);
 
         $mail->send();
+
+        // ✅ Optional DB logging
+        if ($conn && $user_id) {
+            logAction($conn, $user_id, "Sent email: $subject to $to");
+        }
+
         return true;
 
     } catch (Exception $e) {
-    error_log("Mailer Error: " . $mail->ErrorInfo);
-    echo "<script>console.error('❌ Mailer Error: " . $mail->ErrorInfo . "');</script>";
-    return false;
-}
-
+        error_log("Mailer Error: " . $mail->ErrorInfo);
+        if ($conn && $user_id) {
+            logAction($conn, $user_id, "❌ Failed to send email: $subject to $to");
+        }
+        echo "<script>console.error('❌ Mailer Error: " . $mail->ErrorInfo . "');</script>";
+        return false;
+    }
 }
