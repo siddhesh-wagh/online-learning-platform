@@ -1,19 +1,10 @@
 <?php
 session_start();
 include '../db-config.php';
+include_once '../includes/functions.php'; // needed for logAction() if you want to log admin actions
 
-// ✅ Optional debug line (remove after testing)
-// echo "Logged in as: " . ($_SESSION['role'] ?? 'none');
-
-if (!isset($_SESSION['user_id'])) {
-    // Not logged in at all
+if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
     header("Location: ../auth/login.php");
-    exit;
-}
-
-// ✅ Restrict to admin role
-if ($_SESSION['role'] !== 'admin') {
-    echo "Access denied.";
     exit;
 }
 
@@ -23,16 +14,45 @@ if (isset($_GET['approve'])) {
     $stmt = $conn->prepare("UPDATE users SET is_approved = 1 WHERE id = ?");
     $stmt->bind_param("i", $id);
     $stmt->execute();
+    $_SESSION['message'] = "✅ Instructor approved.";
     header("Location: manage-users.php");
     exit;
 }
 
-// ✅ Delete user
+// ✅ Delete user with log check
 if (isset($_GET['delete'])) {
     $id = (int) $_GET['delete'];
-    $stmt = $conn->prepare("DELETE FROM users WHERE id = ?");
-    $stmt->bind_param("i", $id);
-    $stmt->execute();
+
+    // Get user info before deletion
+    $getUser = $conn->prepare("SELECT name, email FROM users WHERE id = ?");
+    $getUser->bind_param("i", $id);
+    $getUser->execute();
+    $userRes = $getUser->get_result();
+    $user = $userRes->fetch_assoc();
+
+    if ($user) {
+        $name = $user['name'];
+        $email = $user['email'];
+
+        // Log deletion BEFORE deleting
+        $adminId = $_SESSION['user_id'];
+        $action = "Deleted user: \"$name\" ($email, ID: $id)";
+
+        $logStmt = $conn->prepare("INSERT INTO logs (user_id, action, user_name, user_email, created_at)
+                                   VALUES (?, ?, ?, ?, NOW())");
+        $logStmt->bind_param("isss", $adminId, $action, $name, $email);
+        $logStmt->execute();
+
+        // Delete user
+        $delStmt = $conn->prepare("DELETE FROM users WHERE id = ?");
+        $delStmt->bind_param("i", $id);
+        $delStmt->execute();
+
+        $_SESSION['message'] = "✅ User deleted and log recorded.";
+    } else {
+        $_SESSION['message'] = "❌ User not found.";
+    }
+
     header("Location: manage-users.php");
     exit;
 }
@@ -51,6 +71,13 @@ $result = $conn->query("SELECT id, name, email, role, is_approved FROM users ORD
 <div class="container py-4">
     <h2 class="mb-3">👤 Manage Users</h2>
     <a href="../views/dashboard.php" class="btn btn-secondary mb-3">← Back to Dashboard</a>
+
+    <?php if (!empty($_SESSION['message'])): ?>
+        <div class="alert alert-info alert-dismissible fade show" role="alert">
+            <?= $_SESSION['message']; unset($_SESSION['message']); ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    <?php endif; ?>
 
     <table class="table table-bordered table-striped">
         <thead class="table-dark">
@@ -82,5 +109,7 @@ $result = $conn->query("SELECT id, name, email, role, is_approved FROM users ORD
         </tbody>
     </table>
 </div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
