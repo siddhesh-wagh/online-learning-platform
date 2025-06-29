@@ -167,78 +167,35 @@ if ($selected_course_id && is_numeric($selected_course_id)) {
       <h6>Students Enrolled</h6><p class="fs-4"><?= $total_enrolled ?></p></div></div></div>
 </div>
 
-<!-- 📚 Manage Courses Table -->
+<!-- 📚 Manage Courses Table (AJAX Ready) -->
 <div class="card mb-4">
   <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
     <h5 class="mb-0">📋 Manage Your Courses</h5>
     <a href="add-course.php" class="btn btn-sm btn-light">➕ Add New Course</a>
   </div>
-  <div class="card-body p-0">
-    <?php if ($paginated_courses->num_rows > 0): ?>
-      <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0">
-          <thead class="table-light">
-            <tr>
-              <th>#</th>
-              <th>📘 Course Title</th>
-              <th>📅 Created On</th>
-              <th>💬 Comments</th>
-              <th>👥 Enrolled</th>
-              <th style="width: 180px;">⚙️ Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <?php $i = $offset + 1; while ($course = $paginated_courses->fetch_assoc()): ?>
-              <?php
-                $course_id = $course['id'];
-                $comment_count = $conn->query("SELECT COUNT(*) AS total FROM comments WHERE course_id = $course_id")->fetch_assoc()['total'] ?? 0;
-                $student_count = $conn->query("SELECT COUNT(DISTINCT user_id) AS total FROM course_progress WHERE course_id = $course_id")->fetch_assoc()['total'] ?? 0;
-              ?>
-              <tr>
-                <td><?= $i++ ?></td>
-                <td><?= htmlspecialchars($course['title']) ?></td>
-                <td><?= date("M d, Y", strtotime($course['created_at'])) ?></td>
-                <td><span class="badge bg-info"><?= $comment_count ?></span></td>
-                <td><span class="badge bg-success"><?= $student_count ?></span></td>
-                <td>
-                  <div class="d-flex flex-wrap gap-2">
-                    <a href="course-preview.php?id=<?= $course_id ?>" 
-                      class="btn btn-sm btn-outline-primary d-flex align-items-center">
-                      👁️ <span class="ms-1">Preview</span>
-                    </a>
-
-                    <a href="delete-course.php?id=<?= $course_id ?>" 
-                      class="btn btn-sm btn-outline-danger d-flex align-items-center"
-                      onclick="return confirm('Are you sure you want to delete this course?')">
-                      🗑️ <span class="ms-1">Delete</span>
-                    </a>
-                  </div>
-                </td>
-              </tr>
-            <?php endwhile; ?>
-          </tbody>
-        </table>
-      </div>
-
-      <!-- 📄 Pagination -->
-      <?php if ($total_pages > 1): ?>
-        <nav class="mt-3">
-          <ul class="pagination justify-content-center">
-            <?php if ($page > 1): ?>
-              <li class="page-item"><a class="page-link" href="?page=<?= $page - 1 ?>">« Prev</a></li>
-            <?php endif; ?>
-            <li class="page-item disabled"><span class="page-link">Page <?= $page ?> of <?= $total_pages ?></span></li>
-            <?php if ($page < $total_pages): ?>
-              <li class="page-item"><a class="page-link" href="?page=<?= $page + 1 ?>">Next »</a></li>
-            <?php endif; ?>
-          </ul>
-        </nav>
-      <?php endif; ?>
-    <?php else: ?>
-      <p class="p-3 text-muted mb-0">You haven't created any courses yet.</p>
-    <?php endif; ?>
+  <div class="card-body p-0" id="courseTableContainer">
+    <p class="text-muted p-3 mb-0">Loading courses...</p>
   </div>
 </div>
+
+<script>
+function loadCourses(page = 1) {
+  fetch(`/online-learning-platform/views/load-courses.php?page=${page}`)
+    .then(res => res.text())
+    .then(html => {
+      document.getElementById('courseTableContainer').innerHTML = html;
+    })
+    .catch(() => {
+      document.getElementById('courseTableContainer').innerHTML =
+        "<p class='p-3 text-danger'>Failed to load courses.</p>";
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  loadCourses();
+});
+</script>
+
 
 <!-- 🔔 Notifications -->
 <div class="card mb-4">
