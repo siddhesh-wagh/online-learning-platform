@@ -1,7 +1,7 @@
 <?php
 include '../includes/auth.php';
 include '../db-config.php';
-include '../includes/functions.php'; // ✅ Add this if not already
+include '../includes/functions.php';
 
 $role = $_SESSION['role'];
 $name = $_SESSION['name'];
@@ -334,9 +334,6 @@ document.getElementById('clearCourseBtn').addEventListener('click', function () 
   document.getElementById('studentsSection').innerHTML = '<p class="text-muted">Select a course to view enrolled students.</p>';
 });
 </script>
-
-
-
 
 <?php elseif ($role === 'learner'): ?>
 <?php
@@ -955,8 +952,6 @@ new Chart(document.getElementById('adminChart'), {
   }
 });
 
-
-
 new Chart(document.getElementById('courseStatsChart'), {
   type: 'bar',
   data: {
@@ -1046,8 +1041,6 @@ new Chart(document.getElementById('courseStatsChart'), {
     }
   }
 });
-
-
 
 const logsPath = '/online-learning-platform/views/load-logs.php';
 
@@ -1186,10 +1179,7 @@ function loadLogsPaginated(page = 1) {
 document.addEventListener('DOMContentLoaded', () => {
   loadLogs();
 });
-
-
 </script>
-
 <?php endif; ?>
 </div>
 <!-- REQUIRED for Bootstrap Tabs to work -->
