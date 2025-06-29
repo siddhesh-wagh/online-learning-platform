@@ -264,7 +264,6 @@ if ($selected_course_id && is_numeric($selected_course_id)) {
     <button name="mark_read" class="btn btn-sm btn-outline-secondary">Mark all as read</button>
   </form>
 </div>
-
 <!-- 💬 Comments + Students -->
 <div class="row mb-5">
   <!-- 💬 Comments -->
@@ -272,61 +271,22 @@ if ($selected_course_id && is_numeric($selected_course_id)) {
     <div class="card h-100">
       <div class="card-header bg-primary text-white">💬 View & Reply to Comments</div>
       <div class="card-body">
-        <form method="GET" class="mb-3">
-          <label for="course_id">Select Course:</label>
-          <div class="input-group">
-            <select name="course_id" id="course_id" class="form-select" onchange="this.form.submit()">
-              <option value="">-- Choose a Course --</option>
-              <?php mysqli_data_seek($courses_list, 0); while ($course = $courses_list->fetch_assoc()): ?>
-                <option value="<?= $course['id'] ?>" <?= $selected_course_id == $course['id'] ? 'selected' : '' ?>>
-                  <?= htmlspecialchars($course['title']) ?>
-                </option>
-              <?php endwhile; ?>
-            </select>
-            <?php if ($selected_course_id): ?>
-              <a href="dashboard.php" class="btn btn-outline-secondary">Clear</a>
-            <?php endif; ?>
-          </div>
-        </form>
+        <label for="course_id">Select Course:</label>
+        <div class="input-group mb-3">
+          <select id="course_id" class="form-select">
+            <option value="">-- Choose a Course --</option>
+            <?php mysqli_data_seek($courses_list, 0); while ($course = $courses_list->fetch_assoc()): ?>
+              <option value="<?= $course['id'] ?>">
+                <?= htmlspecialchars($course['title']) ?>
+              </option>
+            <?php endwhile; ?>
+          </select>
+          <button id="clearCourseBtn" class="btn btn-outline-secondary" type="button">Clear</button>
+        </div>
 
-        <?php if ($selected_course_id): ?>
-          <?php if ($comments_result && $comments_result->num_rows > 0): ?>
-            <ul class="list-group">
-              <?php while ($com = $comments_result->fetch_assoc()): ?>
-                <li class="list-group-item">
-                  <strong><?= htmlspecialchars($com['name']) ?></strong><br>
-                  <?= nl2br(htmlspecialchars($com['content'])) ?>
-                  <small class="text-muted float-end"><?= $com['created_at'] ?></small><br>
-                  <?php
-                    $comment_id = $com['id'];
-                    $reply_stmt = $conn->prepare("SELECT reply, created_at FROM replies WHERE comment_id = ?");
-                    $reply_stmt->bind_param("i", $comment_id);
-                    $reply_stmt->execute();
-                    $reply = $reply_stmt->get_result()->fetch_assoc();
-                  ?>
-                  <?php if ($reply): ?>
-                    <div class="mt-2 p-2 bg-light border rounded small">
-                      <strong>You replied:</strong><br>
-                      <?= nl2br(htmlspecialchars($reply['reply'])) ?>
-                      <small class="text-muted float-end"><?= $reply['created_at'] ?></small>
-                    </div>
-                  <?php else: ?>
-                    <form method="POST" class="mt-2">
-                      <input type="hidden" name="comment_id" value="<?= $comment_id ?>">
-                      <input type="hidden" name="course_id" value="<?= $selected_course_id ?>">
-                      <textarea name="reply" class="form-control form-control-sm mb-2" rows="2" placeholder="Write a reply..."></textarea>
-                      <button type="submit" name="submit_reply" class="btn btn-sm btn-primary">Reply</button>
-                    </form>
-                  <?php endif; ?>
-                </li>
-              <?php endwhile; ?>
-            </ul>
-          <?php else: ?>
-            <p class="text-muted">No comments yet for this course.</p>
-          <?php endif; ?>
-        <?php else: ?>
+        <div id="commentsSection">
           <p class="text-muted">Select a course above to view comments.</p>
-        <?php endif; ?>
+        </div>
       </div>
     </div>
   </div>
@@ -336,31 +296,45 @@ if ($selected_course_id && is_numeric($selected_course_id)) {
     <div class="card h-100">
       <div class="card-header bg-dark text-white">👥 Enrolled Students</div>
       <div class="card-body">
-        <?php if ($selected_course_id): ?>
-          <?php
-          $enroll_stmt = $conn->prepare("SELECT u.name, u.email FROM course_progress cp JOIN users u ON cp.user_id = u.id WHERE cp.course_id = ?");
-          $enroll_stmt->bind_param("i", $selected_course_id);
-          $enroll_stmt->execute();
-          $students_result = $enroll_stmt->get_result();
-          $student_count = $students_result->num_rows;
-          ?>
-          <p><strong>Total Enrolled:</strong> <?= $student_count ?></p>
-          <?php if ($student_count > 0): ?>
-            <ul class="list-group small">
-              <?php while ($stu = $students_result->fetch_assoc()): ?>
-                <li class="list-group-item"><?= htmlspecialchars($stu['name']) ?> <small class="text-muted float-end"><?= htmlspecialchars($stu['email']) ?></small></li>
-              <?php endwhile; ?>
-            </ul>
-          <?php else: ?>
-            <p class="text-muted">No students enrolled yet.</p>
-          <?php endif; ?>
-        <?php else: ?>
+        <div id="studentsSection">
           <p class="text-muted">Select a course to view enrolled students.</p>
-        <?php endif; ?>
+        </div>
       </div>
     </div>
   </div>
 </div>
+
+<script>
+document.getElementById('course_id').addEventListener('change', function () {
+  const courseId = this.value;
+  const commentsBox = document.getElementById('commentsSection');
+  const studentsBox = document.getElementById('studentsSection');
+
+  if (!courseId) {
+    commentsBox.innerHTML = '<p class="text-muted">Select a course to view comments.</p>';
+    studentsBox.innerHTML = '<p class="text-muted">Select a course to view enrolled students.</p>';
+    return;
+  }
+
+  fetch(`load-course-comments.php?course_id=${courseId}`)
+    .then(res => res.text())
+    .then(html => commentsBox.innerHTML = html)
+    .catch(() => commentsBox.innerHTML = '<p class="text-danger">Failed to load comments.</p>');
+
+  fetch(`load-course-students.php?course_id=${courseId}`)
+    .then(res => res.text())
+    .then(html => studentsBox.innerHTML = html)
+    .catch(() => studentsBox.innerHTML = '<p class="text-danger">Failed to load students.</p>');
+});
+
+// ✅ Clear button functionality
+document.getElementById('clearCourseBtn').addEventListener('click', function () {
+  document.getElementById('course_id').value = '';
+  document.getElementById('commentsSection').innerHTML = '<p class="text-muted">Select a course above to view comments.</p>';
+  document.getElementById('studentsSection').innerHTML = '<p class="text-muted">Select a course to view enrolled students.</p>';
+});
+</script>
+
 
 
 
