@@ -1,6 +1,7 @@
 <?php
 include '../db-config.php'; // DB connection
 include_once '../includes/mailer.php';
+include_once '../includes/functions.php'; // ✅ Logging functions included
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $name     = trim($_POST['name']);
@@ -17,13 +18,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if ($check->num_rows > 0) {
         echo "❌ Email already exists.";
     } else {
-        $token = bin2hex(random_bytes(16)); // secure token
+        $token = bin2hex(random_bytes(16));
 
         $stmt = $conn->prepare("INSERT INTO users (name, email, password, role, is_verified, verify_token)
                                 VALUES (?, ?, ?, ?, 0, ?)");
         $stmt->bind_param("sssss", $name, $email, $password, $role, $token);
 
         if ($stmt->execute()) {
+            $user_id = $stmt->insert_id; // ✅ Get inserted user ID
+
             // ✅ Send verification email
             $verify_link = "http://localhost/online-learning-platform/auth/verify.php?token=$token";
             $subject = "🔐 Verify Your Email - Online Learning Platform";
@@ -38,12 +41,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
             sendEmail($email, $subject, $body);
 
+            // ✅ Log the registration
+            logNewRegistration($conn, $user_id);
+
             echo "✅ Registered! Please check your email to verify your account.";
         } else {
             echo "❌ Registration failed: " . $stmt->error;
         }
     }
 }
+
 ?>
 
 <!-- Registration Form -->
