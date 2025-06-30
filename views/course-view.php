@@ -68,6 +68,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->bind_param("isii", $percent, $status, $user_id, $course_id);
         $stmt->execute();
         $current_percent = $percent;
+
+        // ✅ Log the progress update
+        logProgressUpdate($conn, $user_id, $course_id, $percent);
     }
 
     if (isset($_POST['reset_progress'])) {
@@ -76,6 +79,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->bind_param("ii", $user_id, $course_id);
         $stmt->execute();
         $current_percent = 0;
+
+        // ✅ Log the progress reset
+        logProgressReset($conn, $user_id, $course_id);
     }
 
     if (isset($_POST['comment']) && $is_enrolled) {
@@ -89,9 +95,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $notif = $conn->prepare("INSERT INTO notifications (user_id, message) VALUES (?, ?)");
             $notif->bind_param("is", $course['instructor_id'], $notif_msg);
             $notif->execute();
+
+            // ✅ Log the comment action
+            logPostedComment($conn, $user_id, $course_id);
         }
     }
 }
+
+// (Pagination code remains unchanged)
 
 // Comments (pagination)
 $comments_per_page = 5;
