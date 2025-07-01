@@ -13,49 +13,53 @@ if (isset($_SESSION['role'])) {
     <title>Online Learning Platform</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-      body {
-        display: flex;
-        flex-direction: column;
-        min-height: 100vh;
-      }
-      main {
-        flex: 1;
-      }
-      .feature-icon {
-        font-size: 3rem;
-        color: #0d6efd;
-      }
+        body {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+        main {
+            flex: 1;
+        }
+        .feature-icon {
+            font-size: 3rem;
+            color: #0d6efd;
+        }
     </style>
 </head>
 <body class="bg-light">
 
-<!-- 🌐 Navbar -->
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-  <div class="container-fluid">
-    <a class="navbar-brand" href="#">🧠 EduPlatform</a>
-    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarContent">
-      <span class="navbar-toggler-icon"></span>
-    </button>
+<!-- 🌐 Navbar (Centered Links) -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-gradient" style="background: linear-gradient(90deg, #0d6efd, #6610f2); box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+    <div class="container">
+        <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="#">
+            🧠 <span>EduPlatform</span>
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarContent">
+            <span class="navbar-toggler-icon"></span>
+        </button>
 
-    <div class="collapse navbar-collapse" id="navbarContent">
-      <ul class="navbar-nav ms-auto">
-        <li class="nav-item"><a class="nav-link active" href="#">Home</a></li>
-        <li class="nav-item"><a class="nav-link" href="views/course-list.php">Courses</a></li>
-        <li class="nav-item"><a class="nav-link" href="views/about.php">About</a></li>
-        <li class="nav-item"><a class="nav-link" href="auth/register.php">Register</a></li>
-        <li class="nav-item"><a class="nav-link" href="auth/login.php">Login</a></li>
-        <li class="nav-item"><a class="nav-link" href="views/contact.php">Contact</a></li>
-      </ul>
+        <div class="collapse navbar-collapse justify-content-center" id="navbarContent">
+            <ul class="navbar-nav gap-3">
+                <li class="nav-item"><a class="nav-link active" href="#">Home</a></li>
+                <li class="nav-item"><a class="nav-link" href="views/course-list.php">Courses</a></li>
+                <li class="nav-item"><a class="nav-link" href="views/about.php">About</a></li>
+                <li class="nav-item"><a class="nav-link" href="auth/register.php">Register</a></li>
+                <li class="nav-item"><a class="nav-link" href="auth/login.php">Login</a></li>
+                <li class="nav-item"><a class="nav-link" href="views/contact.php">Contact</a></li>
+            </ul>
+        </div>
     </div>
-  </div>
 </nav>
 
-<!-- 🖥 Hero Section -->
-<main class="container py-5 text-center">
-    <h1>Welcome to EduPlatform</h1>
-    <p class="lead">A modern platform to teach, learn, and grow together online.</p>
-    <a href="auth/register.php" class="btn btn-primary btn-lg">Get Started</a>
-</main>
+<!-- 🖥 Hero Section (Enhanced) -->
+<header class="bg-light py-5" style="background: linear-gradient(135deg, #e0f0ff, #ffffff); box-shadow: inset 0 -1px 0 #ddd;">
+    <div class="container text-center py-5">
+        <h1 class="display-4 fw-bold text-dark mb-3">Welcome to <span class="text-primary">EduPlatform</span></h1>
+        <p class="lead text-secondary mb-4">Empowering learners to build skills, grow careers, and achieve goals online.</p>
+        <a href="auth/register.php" class="btn btn-primary btn-lg px-4 shadow-sm">Get Started</a>
+    </div>
+</header>
 
 <!-- 🚀 Features -->
 <section class="container text-center py-5">
