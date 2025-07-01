@@ -52,49 +52,72 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
     body {
-      background: linear-gradient(135deg, #e0ecff, #d8e2ff);
+      background: linear-gradient(135deg, #0d6efd, #6610f2);
       min-height: 100vh;
       display: flex;
       align-items: center;
       justify-content: center;
+      font-family: 'Segoe UI', sans-serif;
+    }
+
+    .login-wrapper {
+      background-color: #fff;
+      padding: 2.5rem;
+      border-radius: 15px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+      width: 100%;
+      max-width: 400px;
       position: relative;
     }
-    .login-card {
-      max-width: 400px;
-      width: 100%;
-      background: #fff;
-      border-radius: 12px;
-      padding: 2rem;
-      box-shadow: 0 0 20px rgba(0, 0, 0, 0.08);
-    }
-    .login-card h2 {
-      font-weight: bold;
+
+    .login-wrapper h2 {
+      font-weight: 700;
       margin-bottom: 1.5rem;
-      color: #0d6efd;
+      color: #343a40;
+      text-align: center;
     }
-    .form-control:focus {
-      box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+
+    .btn-primary {
+      background-color: #0d6efd;
+      border-color: #0d6efd;
     }
+
+    .btn-primary:hover {
+      background-color: #0b5ed7;
+    }
+
     .alert {
       font-size: 0.95rem;
     }
-    .back-button {
+
+    .back-home {
       position: absolute;
-      top: 20px;
-      left: 20px;
+      top: -50px;
+      left: 0;
+    }
+
+    .back-home a {
+      color: #fff;
+      font-weight: 500;
+      text-decoration: none;
+      transition: 0.2s ease;
+    }
+
+    .back-home a:hover {
+      text-decoration: underline;
     }
   </style>
 </head>
 <body>
 
 <!-- 🔙 Back to Home -->
-<div class="back-button">
-  <a href="../index.php" class="btn btn-secondary">← Back to Home</a>
+<div class="back-home position-absolute start-0 top-0 m-4">
+  <a href="../index.php" class="btn btn-sm btn-outline-light">← Back to Home</a>
 </div>
 
 <!-- 🔐 Login Card -->
-<div class="login-card">
-  <h2 class="text-center">Login</h2>
+<div class="login-wrapper">
+  <h2>Login to EduPlatform</h2>
 
   <?php if (isset($error)): ?>
     <div class="alert alert-danger text-center"><?= $error ?></div>
@@ -103,12 +126,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
   <form method="POST" action="">
     <div class="mb-3">
       <label for="email" class="form-label">Email address</label>
-      <input type="email" name="email" class="form-control" id="email" required>
+      <input type="email" name="email" id="email" class="form-control" required>
     </div>
 
     <div class="mb-3">
       <label for="password" class="form-label">Password</label>
-      <input type="password" name="password" class="form-control" id="password" required>
+      <input type="password" name="password" id="password" class="form-control" required>
     </div>
 
     <div class="d-grid">
@@ -117,7 +140,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
   </form>
 
   <div class="text-center mt-3">
-    <a href="register.php" class="text-decoration-none">Don't have an account? Register</a>
+    <a href="register.php" class="text-decoration-none text-primary">Don't have an account? Register</a>
   </div>
 </div>
 
