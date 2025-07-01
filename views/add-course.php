@@ -1,12 +1,14 @@
 <?php
 include '../includes/auth.php';
 include '../db-config.php';
-include '../includes/functions.php'; // ✅ Include log function
+include '../includes/functions.php';
 
 if ($_SESSION['role'] !== 'instructor') {
-    echo "Access denied.";
+    echo "<div class='alert alert-danger text-center my-5'>⛔ Access Denied. Instructors only.</div>";
     exit;
 }
+
+$message = "";
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $title         = trim($_POST['title']);
@@ -16,7 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $file_path = null;
     $thumbnail_path = null;
 
-    // Course File Upload
+    // Handle Course File Upload
     if (!empty($_FILES['course_file']['name'])) {
         $allowed_types = ['application/pdf', 'video/mp4'];
         $file_type = $_FILES['course_file']['type'];
@@ -31,16 +33,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (move_uploaded_file($file_tmp, $target_file)) {
                 $file_path = "uploads/" . $file_name;
             } else {
-                echo "<div class='alert alert-danger'>❌ Failed to upload course file.</div>";
-                exit;
+                $message = "<div class='alert alert-danger'>❌ Failed to upload course file.</div>";
             }
         } else {
-            echo "<div class='alert alert-danger'>❌ Invalid file type or size (Max 10MB, only PDF/MP4 allowed).</div>";
-            exit;
+            $message = "<div class='alert alert-danger'>❌ Invalid file type or file too large (max 10MB, only PDF/MP4 allowed).</div>";
         }
     }
 
-    // Thumbnail Upload
+    // Handle Thumbnail Upload
     if (!empty($_FILES['thumbnail']['name'])) {
         $thumb_type = $_FILES['thumbnail']['type'];
         $thumb_tmp  = $_FILES['thumbnail']['tmp_name'];
@@ -56,66 +56,79 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (move_uploaded_file($thumb_tmp, $thumb_path)) {
                 $thumbnail_path = "uploads/thumbnails/" . $thumb_name;
             } else {
-                echo "<div class='alert alert-danger'>❌ Failed to upload thumbnail.</div>";
-                exit;
+                $message = "<div class='alert alert-danger'>❌ Failed to upload thumbnail.</div>";
             }
         } else {
-            echo "<div class='alert alert-danger'>❌ Invalid thumbnail format (JPG/PNG only).</div>";
-            exit;
+            $message = "<div class='alert alert-danger'>❌ Invalid thumbnail format. Only JPG/PNG allowed.</div>";
         }
     }
 
-    // Insert course
-    $stmt = $conn->prepare("INSERT INTO courses (instructor_id, title, description, file_path, thumbnail_path) VALUES (?, ?, ?, ?, ?)");
-    $stmt->bind_param("issss", $instructor_id, $title, $description, $file_path, $thumbnail_path);
+    if (empty($message)) {
+        $stmt = $conn->prepare("INSERT INTO courses (instructor_id, title, description, file_path, thumbnail_path) VALUES (?, ?, ?, ?, ?)");
+        $stmt->bind_param("issss", $instructor_id, $title, $description, $file_path, $thumbnail_path);
 
-    if ($stmt->execute()) {
-        logAction($conn, $instructor_id, "Created course: $title"); // ✅ FIXED: include $conn
-        echo "<div class='alert alert-success'>✅ Course added successfully!</div>";
-    } else {
-        echo "<div class='alert alert-danger'>❌ Error: " . $stmt->error . "</div>";
+        if ($stmt->execute()) {
+            logAction($conn, $instructor_id, "Created course: $title");
+            $message = "<div class='alert alert-success'>✅ Course <strong>" . htmlspecialchars($title) . "</strong> added successfully!</div>";
+        } else {
+            $message = "<div class='alert alert-danger'>❌ Error: " . $stmt->error . "</div>";
+        }
     }
 }
 ?>
-
 
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Add Course</title>
+  <title>Add New Course</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    .thumbnail-preview {
+      max-width: 100%;
+      height: auto;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      margin-top: 10px;
+    }
+  </style>
 </head>
 <body class="bg-light">
 
 <div class="container my-5">
-  <div class="text-center mb-5">
+  <div class="text-center mb-4">
     <h2 class="fw-bold">📚 Create a New Course</h2>
-    <p class="text-muted">Fill out the form below to upload your course materials and thumbnail.</p>
+    <p class="text-muted">Upload your course content and thumbnail image below.</p>
   </div>
 
-  <form method="POST" enctype="multipart/form-data" class="card p-4 shadow-lg border-0 rounded-4 bg-white">
+  <?= $message ?>
+
+  <form method="POST" enctype="multipart/form-data" class="card p-4 shadow border-0 rounded-4 bg-white needs-validation" novalidate>
     <div class="row g-4">
       <div class="col-md-12">
         <label for="title" class="form-label">📘 Course Title</label>
-        <input type="text" id="title" name="title" required class="form-control form-control-lg" placeholder="e.g., Mastering Python Basics">
+        <input type="text" id="title" name="title" class="form-control form-control-lg" placeholder="e.g., Mastering React" required>
+        <div class="invalid-feedback">Course title is required.</div>
       </div>
 
       <div class="col-md-12">
         <label for="description" class="form-label">📝 Description</label>
-        <textarea id="description" name="description" required class="form-control form-control-lg" rows="4" placeholder="What is this course about? Who is it for?"></textarea>
+        <textarea id="description" name="description" class="form-control form-control-lg" rows="4" required placeholder="Write a brief description..."></textarea>
+        <div class="invalid-feedback">Description cannot be empty.</div>
       </div>
 
       <div class="col-md-6">
         <label for="course_file" class="form-label">📎 Upload Course File (PDF/MP4)</label>
-        <input type="file" id="course_file" name="course_file" class="form-control" accept=".pdf,.mp4">
-        <div class="form-text">Max 10MB. Accepted: PDF or MP4.</div>
+        <input type="file" id="course_file" name="course_file" class="form-control" accept=".pdf,.mp4" required>
+        <div class="form-text">Max 10MB. Allowed formats: PDF or MP4.</div>
+        <div class="invalid-feedback">Please upload a course file (PDF/MP4).</div>
       </div>
 
       <div class="col-md-6">
-        <label for="thumbnail" class="form-label">🖼️ Upload Thumbnail (JPG/PNG)</label>
-        <input type="file" id="thumbnail" name="thumbnail" class="form-control" accept=".jpg,.jpeg,.png">
-        <div class="form-text">Recommended 1280x720px (16:9 aspect).</div>
+        <label for="thumbnail" class="form-label">🖼️ Thumbnail (JPG/PNG)</label>
+        <input type="file" id="thumbnail" name="thumbnail" class="form-control" accept=".jpg,.jpeg,.png" onchange="previewThumbnail(this)">
+        <div class="form-text">Recommended 1280x720px. JPG or PNG only.</div>
+        <img id="thumbPreview" class="thumbnail-preview d-none" alt="Thumbnail Preview">
       </div>
     </div>
 
@@ -125,6 +138,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
   </form>
 </div>
+
+<script>
+  // Bootstrap form validation
+  (() => {
+    'use strict';
+    const forms = document.querySelectorAll('.needs-validation');
+    forms.forEach(form => {
+      form.addEventListener('submit', e => {
+        if (!form.checkValidity()) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        form.classList.add('was-validated');
+      });
+    });
+  })();
+
+  // Thumbnail preview
+  function previewThumbnail(input) {
+    const file = input.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const img = document.getElementById('thumbPreview');
+        img.src = e.target.result;
+        img.classList.remove('d-none');
+      };
+      reader.readAsDataURL(file);
+    }
+  }
+</script>
 
 </body>
 </html>
