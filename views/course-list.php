@@ -12,11 +12,10 @@ if (!$is_learner && !$is_admin) {
 }
 
 $user_id = $_SESSION['user_id'];
-$search = $_GET['search'] ?? '';
+$search = trim($_GET['search'] ?? '');
 $page = max(1, (int)($_GET['page'] ?? 1));
 $limit = 6;
 $offset = ($page - 1) * $limit;
-
 $search_sql = "%$search%";
 
 // Total count
@@ -28,7 +27,7 @@ $count_stmt = $conn->prepare("
 ");
 $count_stmt->bind_param("ss", $search_sql, $search_sql);
 $count_stmt->execute();
-$total = $count_stmt->get_result()->fetch_assoc()['total'];
+$total = $count_stmt->get_result()->fetch_assoc()['total'] ?? 0;
 $total_pages = ceil($total / $limit);
 
 // Fetch courses
@@ -46,21 +45,33 @@ $result = $stmt->get_result();
 ?>
 
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Available Courses</title>
   <meta charset="UTF-8">
+  <title>Available Courses | EduPlatform</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body class="bg-light">
+
+<!-- 🔝 Navbar -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm sticky-top">
+  <div class="container-fluid">
+    <a class="navbar-brand fw-bold" href="#">🎓 EduPlatform</a>
+    <div class="d-flex">
+      <a href="dashboard.php" class="btn btn-outline-light btn-sm">← Back to Dashboard</a>
+    </div>
+  </div>
+</nav>
+
+<!-- 📚 Main Content -->
 <div class="container py-5">
 
   <div class="d-flex justify-content-between align-items-center mb-4">
     <h2 class="mb-0">📚 Available Courses</h2>
-    <a href="dashboard.php" class="btn btn-outline-secondary">← Back to Dashboard</a>
   </div>
 
-  <!-- 🔍 Search -->
+  <!-- 🔍 Search Bar -->
   <form method="GET" class="mb-4">
     <div class="input-group">
       <input type="text" name="search" class="form-control" placeholder="Search by course or instructor..." value="<?= htmlspecialchars($search) ?>">
@@ -79,7 +90,7 @@ $result = $stmt->get_result();
           $thumbnail = $course['thumbnail_path'] ?? '';
           $thumbnail_src = ($thumbnail && file_exists("../$thumbnail")) ? "../$thumbnail" : "../assets/images/placeholder-course.png";
 
-          // ✅ Fetch real progress percent for learners
+          // Get learner progress
           $progress = 0;
           if ($is_learner) {
               $progress_stmt = $conn->prepare("SELECT progress_percent FROM course_progress WHERE user_id = ? AND course_id = ?");
@@ -88,6 +99,8 @@ $result = $stmt->get_result();
               $progress_data = $progress_stmt->get_result()->fetch_assoc();
               $progress = $progress_data['progress_percent'] ?? 0;
           }
+
+          $progress_class = $progress === 100 ? 'success' : ($progress > 0 ? 'info' : 'secondary');
         ?>
         <div class="col-md-4">
           <div class="card shadow-sm h-100 border-0">
@@ -98,14 +111,13 @@ $result = $stmt->get_result();
               <p class="card-text small mb-3"><?= nl2br(htmlspecialchars($course['description'])) ?></p>
 
               <?php if ($is_learner): ?>
-              <div class="progress mb-3" style="height: 18px;">
-                <div class="progress-bar bg-<?= $progress === 100 ? 'success' : ($progress > 0 ? 'info' : 'secondary') ?>"
-                     role="progressbar"
-                     style="width: <?= $progress ?>%;"
-                     aria-valuenow="<?= $progress ?>" aria-valuemin="0" aria-valuemax="100">
-                  <?= $progress ?>%
+                <div class="progress mb-3" style="height: 18px;">
+                  <div class="progress-bar bg-<?= $progress_class ?>" role="progressbar"
+                       style="width: <?= $progress ?>%;"
+                       aria-valuenow="<?= $progress ?>" aria-valuemin="0" aria-valuemax="100">
+                    <?= $progress ?>%
+                  </div>
                 </div>
-              </div>
               <?php endif; ?>
 
               <a href="course-view.php?id=<?= $cid ?>" class="btn btn-sm btn-outline-primary mt-auto">🔎 View Course</a>
@@ -117,23 +129,29 @@ $result = $stmt->get_result();
 
     <!-- 🔗 Pagination -->
     <?php if ($total_pages > 1): ?>
-    <nav class="mt-4">
-      <ul class="pagination justify-content-center">
-        <?php if ($page > 1): ?>
-          <li class="page-item"><a class="page-link" href="?<?= http_build_query(array_merge($_GET, ['page' => $page - 1])) ?>">« Prev</a></li>
-        <?php endif; ?>
-        <li class="page-item disabled"><span class="page-link">Page <?= $page ?> of <?= $total_pages ?></span></li>
-        <?php if ($page < $total_pages): ?>
-          <li class="page-item"><a class="page-link" href="?<?= http_build_query(array_merge($_GET, ['page' => $page + 1])) ?>">Next »</a></li>
-        <?php endif; ?>
-      </ul>
-    </nav>
+      <nav class="mt-5">
+        <ul class="pagination justify-content-center">
+          <?php if ($page > 1): ?>
+            <li class="page-item">
+              <a class="page-link" href="?<?= http_build_query(array_merge($_GET, ['page' => $page - 1])) ?>">« Prev</a>
+            </li>
+          <?php endif; ?>
+
+          <li class="page-item disabled"><span class="page-link">Page <?= $page ?> of <?= $total_pages ?></span></li>
+
+          <?php if ($page < $total_pages): ?>
+            <li class="page-item">
+              <a class="page-link" href="?<?= http_build_query(array_merge($_GET, ['page' => $page + 1])) ?>">Next »</a>
+            </li>
+          <?php endif; ?>
+        </ul>
+      </nav>
     <?php endif; ?>
 
   <?php else: ?>
     <div class="alert alert-info text-center">No courses found.</div>
   <?php endif; ?>
-
 </div>
+
 </body>
 </html>
