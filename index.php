@@ -29,16 +29,21 @@ if (isset($_SESSION['role'])) {
 </head>
 <body class="bg-light">
 
-<!-- 🌐 Navbar (Dark like Footer) -->
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow">
-  <div class="container">
-    <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="#">
-      🧠 <span>EduPlatform</span>
+<!-- 🌐 Navbar (Polished & Balanced) -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm py-3">
+  <div class="container d-flex justify-content-between align-items-center">
+    
+    <!-- Brand -->
+    <a class="navbar-brand d-flex align-items-center gap-2 fs-4 fw-semibold text-white" href="#" style="letter-spacing: 1px;">
+      <span style="font-size: 1.5rem;">🧠</span> EduPlatform
     </a>
+    
+    <!-- Toggler for mobile -->
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarContent">
       <span class="navbar-toggler-icon"></span>
     </button>
 
+    <!-- Nav links -->
     <div class="collapse navbar-collapse justify-content-center" id="navbarContent">
       <ul class="navbar-nav gap-3">
         <li class="nav-item"><a class="nav-link active" href="#">Home</a></li>
