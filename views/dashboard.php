@@ -126,12 +126,6 @@ $total_enrolled = $conn->query("
   WHERE c.instructor_id = $instructor_id
 ")->fetch_assoc()['total'];
 
-// Paginated Courses
-$stmt = $conn->prepare("SELECT id, title, created_at FROM courses WHERE instructor_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?");
-$stmt->bind_param("iii", $instructor_id, $limit, $offset);
-$stmt->execute();
-$paginated_courses = $stmt->get_result();
-
 // Dropdown Courses for Comments Viewer
 $courses_dropdown = $conn->prepare("SELECT id, title FROM courses WHERE instructor_id = ? ORDER BY created_at DESC");
 $courses_dropdown->bind_param("i", $instructor_id);
@@ -196,7 +190,6 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 
-
 <!-- 🔔 Notifications -->
 <div class="card mb-4">
   <div class="card-header d-flex justify-content-between">
@@ -221,6 +214,7 @@ document.addEventListener('DOMContentLoaded', function () {
     <button name="mark_read" class="btn btn-sm btn-outline-secondary">Mark all as read</button>
   </form>
 </div>
+
 <!-- 💬 Comments + Students -->
 <div class="row mb-5">
   <!-- 💬 Comments -->
@@ -284,7 +278,6 @@ document.getElementById('course_id').addEventListener('change', function () {
     .catch(() => studentsBox.innerHTML = '<p class="text-danger">Failed to load students.</p>');
 });
 
-// ✅ Clear button functionality
 document.getElementById('clearCourseBtn').addEventListener('click', function () {
   document.getElementById('course_id').value = '';
   document.getElementById('commentsSection').innerHTML = '<p class="text-muted">Select a course above to view comments.</p>';

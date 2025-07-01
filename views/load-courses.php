@@ -25,7 +25,7 @@ $i = $offset + 1;
         <th>📅 Created On</th>
         <th>💬 Comments</th>
         <th>👥 Enrolled</th>
-        <th style="width: 180px;">⚙️ Actions</th>
+        <th style="width: 220px;">⚙️ Actions</th>
       </tr>
     </thead>
     <tbody>
@@ -41,10 +41,17 @@ $i = $offset + 1;
           <td><span class="badge bg-info"><?= $comments ?></span></td>
           <td><span class="badge bg-success"><?= $students ?></span></td>
           <td>
-            <div class="d-flex flex-wrap gap-2">
-              <a href="course-preview.php?id=<?= $cid ?>" class="btn btn-sm btn-outline-primary">👁️ Preview</a>
+            <div class="d-flex align-items-center text-nowrap">
+              <a href="course-preview.php?id=<?= $cid ?>" class="btn btn-sm btn-outline-primary me-1">
+                👁️ Preview
+              </a>
+              <a href="edit-course.php?id=<?= $cid ?>" class="btn btn-sm btn-outline-warning me-1">
+                ✏️ Edit
+              </a>
               <a href="delete-course.php?id=<?= $cid ?>" class="btn btn-sm btn-outline-danger"
-                 onclick="return confirm('Are you sure you want to delete this course?')">🗑️ Delete</a>
+                onclick="return confirm('Are you sure you want to delete this course?')">
+                🗑️ Delete
+              </a>
             </div>
           </td>
         </tr>
