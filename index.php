@@ -29,22 +29,22 @@ if (isset($_SESSION['role'])) {
 </head>
 <body class="bg-light">
 
-<!-- 🌐 Navbar (Polished & Balanced) -->
+<!-- 🌐 Navbar (Balanced & Symmetrical) -->
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm py-3">
-  <div class="container d-flex justify-content-between align-items-center">
+  <div class="container d-flex align-items-center justify-content-between">
     
     <!-- Brand -->
-    <a class="navbar-brand d-flex align-items-center gap-2 fs-4 fw-semibold text-white" href="#" style="letter-spacing: 1px;">
+    <a class="navbar-brand d-flex align-items-center gap-2 fs-4 fw-semibold text-white ps-3" href="#" style="letter-spacing: 1px;">
       <span style="font-size: 1.5rem;">🧠</span> EduPlatform
     </a>
-    
-    <!-- Toggler for mobile -->
-    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarContent">
+
+    <!-- Toggler (for mobile view) -->
+    <button class="navbar-toggler me-3" type="button" data-bs-toggle="collapse" data-bs-target="#navbarContent">
       <span class="navbar-toggler-icon"></span>
     </button>
 
-    <!-- Nav links -->
-    <div class="collapse navbar-collapse justify-content-center" id="navbarContent">
+    <!-- Navbar links -->
+    <div class="collapse navbar-collapse justify-content-end pe-3" id="navbarContent">
       <ul class="navbar-nav gap-3">
         <li class="nav-item"><a class="nav-link active" href="#">Home</a></li>
         <li class="nav-item"><a class="nav-link" href="views/course-list.php">Courses</a></li>
@@ -54,6 +54,7 @@ if (isset($_SESSION['role'])) {
         <li class="nav-item"><a class="nav-link" href="views/contact.php">Contact</a></li>
       </ul>
     </div>
+
   </div>
 </nav>
 
