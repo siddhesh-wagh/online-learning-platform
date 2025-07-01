@@ -52,23 +52,84 @@ $result = $stmt->get_result();
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
+    body {
+      background-color: #f8f9fa;
+    }
+
+    .course-card {
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      border-radius: 12px;
+      overflow: hidden;
+      background-color: #ffffff;
+    }
+
+    .course-card:hover {
+      transform: translateY(-6px) scale(1.02);
+      box-shadow: 0 0.75rem 1.25rem rgba(0, 0, 0, 0.1);
+      z-index: 1;
+      cursor: pointer;
+    }
+
     .course-card img {
       height: 200px;
       object-fit: cover;
     }
+
+    .card-title {
+      color: #212529;
+      font-weight: 600;
+    }
+
+    .card-text {
+      color: #495057;
+    }
+
+    .text-muted {
+      color: #6c757d !important;
+    }
+
+    .btn-outline-primary {
+      border-color: #0d6efd;
+      color: #0d6efd;
+    }
+
+    .btn-outline-primary:hover {
+      background-color: #0d6efd;
+      color: white;
+    }
+
     .progress {
-      height: 18px;
+      height: 16px;
+      background-color: #e9ecef;
+    }
+
+    .progress-bar {
+      font-size: 0.75rem;
+      line-height: 16px;
+    }
+
+    .pagination .page-link {
+      color: #0d6efd;
+    }
+
+    .pagination .page-item.active .page-link,
+    .pagination .page-link:hover {
+      background-color: #0d6efd;
+      color: white;
+      border-color: #0d6efd;
     }
   </style>
 </head>
-<body class="bg-light">
-<div class="container py-4">
-
-  <!-- Back Button -->
-  <div class="mb-4">
-    <a href="dashboard.php" class="btn btn-outline-secondary">← Back to Dashboard</a>
+<body>
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
+  <div class="container-fluid">
+    <a class="navbar-brand fw-bold" href="#">🎓 EduPlatform</a>
+    <div>
+      <a href="dashboard.php" class="btn btn-outline-light btn-sm">← Back to Dashboard</a>
+    </div>
   </div>
-
+</nav>
+<div class="container py-5">
   <!-- Page Title -->
   <h2 class="mb-4">📚 Available Courses</h2>
 
