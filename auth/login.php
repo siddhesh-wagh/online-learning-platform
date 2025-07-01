@@ -1,7 +1,7 @@
 <?php
 session_start();
 include '../db-config.php';
-include '../includes/functions.php'; // ✅ Log function included
+include '../includes/functions.php';
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $email    = trim($_POST['email']);
@@ -52,11 +52,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
     body {
-      background: linear-gradient(to right, #0d6efd, #6610f2);
+      background: linear-gradient(135deg, #e0ecff, #d8e2ff);
       min-height: 100vh;
       display: flex;
       align-items: center;
       justify-content: center;
+      position: relative;
     }
     .login-card {
       max-width: 400px;
@@ -64,7 +65,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
       background: #fff;
       border-radius: 12px;
       padding: 2rem;
-      box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.08);
     }
     .login-card h2 {
       font-weight: bold;
@@ -77,10 +78,21 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     .alert {
       font-size: 0.95rem;
     }
+    .back-button {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+    }
   </style>
 </head>
 <body>
 
+<!-- 🔙 Back to Home -->
+<div class="back-button">
+  <a href="../index.php" class="btn btn-secondary">← Back to Home</a>
+</div>
+
+<!-- 🔐 Login Card -->
 <div class="login-card">
   <h2 class="text-center">Login</h2>
 
