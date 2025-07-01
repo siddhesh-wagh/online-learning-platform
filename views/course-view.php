@@ -68,8 +68,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->bind_param("isii", $percent, $status, $user_id, $course_id);
         $stmt->execute();
         $current_percent = $percent;
-
-        // ✅ Log the progress update
         logProgressUpdate($conn, $user_id, $course_id, $percent);
     }
 
@@ -79,8 +77,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->bind_param("ii", $user_id, $course_id);
         $stmt->execute();
         $current_percent = 0;
-
-        // ✅ Log the progress reset
         logProgressReset($conn, $user_id, $course_id);
     }
 
@@ -96,15 +92,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $notif->bind_param("is", $course['instructor_id'], $notif_msg);
             $notif->execute();
 
-            // ✅ Log the comment action
             logPostedComment($conn, $user_id, $course_id);
         }
     }
 }
 
-// (Pagination code remains unchanged)
-
-// Comments (pagination)
+// Comments & Pagination
 $comments_per_page = 5;
 $page = max(1, (int)($_GET['page'] ?? 1));
 $offset = ($page - 1) * $comments_per_page;
@@ -136,135 +129,145 @@ $comments_result = $comments_stmt->get_result();
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>
 <body class="bg-light">
-<div class="container py-4">
 
-  <div class="d-flex justify-content-between align-items-center mb-3">
-    <h2><?= htmlspecialchars($course['title']) ?></h2>
-    <a href="dashboard.php" class="btn btn-outline-secondary btn-sm">← Back to Dashboard</a>
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
+  <div class="container-fluid">
+    <a class="navbar-brand fw-bold" href="#">🎓 EduPlatform</a>
+    <div>
+      <a href="dashboard.php" class="btn btn-outline-light btn-sm">← Back to Dashboard</a>
+    </div>
   </div>
+</nav>
 
-  <p><strong>Instructor:</strong> <?= htmlspecialchars($course['instructor_name']) ?></p>
-  <p><?= nl2br(htmlspecialchars($course['description'])) ?></p>
 
-  <?php if (!$is_enrolled): ?>
-    <div class="alert alert-warning text-center">
-      <p>🔒 You are not enrolled in this course yet.</p>
-      <form method="POST">
-        <button type="submit" name="enroll" class="btn btn-success">📥 Enroll Now</button>
-      </form>
+<div class="container py-5">
+  <div class="card shadow-lg rounded-4 p-4 bg-white border-0">
+
+    <div class="mb-4">
+      <h2 class="fw-bold mb-1 text-primary"><?= htmlspecialchars($course['title']) ?></h2>
+      <p class="text-muted">👨‍🏫 Instructor: <?= htmlspecialchars($course['instructor_name']) ?></p>
+      <p><?= nl2br(htmlspecialchars($course['description'])) ?></p>
     </div>
-  <?php endif; ?>
 
-  <?php if (!empty($course['file_path'])):
-    $file_url = "../" . $course['file_path'];
-    $file_ext = strtolower(pathinfo($file_url, PATHINFO_EXTENSION));
-    $download_name = "CourseMaterial_" . $course_id . "." . $file_ext;
-  ?>
-    <h4 class="mt-4">📁 Course Material</h4>
-    <div class="card mb-4">
-      <div class="row g-0">
-        <div class="col-md-8 p-3">
-          <?php if ($file_ext === 'mp4'): ?>
-            <video class="w-100" height="320" controls>
-              <source src="<?= $file_url ?>" type="video/mp4">
-            </video>
-          <?php elseif ($file_ext === 'pdf'): ?>
-            <div id="pdf-viewer" style="border: 1px solid #ccc; height: 500px; overflow: auto;"></div>
-            <script>
-              const container = document.getElementById('pdf-viewer');
-              const url = '<?= $file_url ?>';
-
-              pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-
-              const renderPDF = async () => {
-                const pdf = await pdfjsLib.getDocument(url).promise;
-                for (let i = 1; i <= pdf.numPages; i++) {
-                  const page = await pdf.getPage(i);
-                  const viewport = page.getViewport({ scale: 1.2 });
-
-                  const canvas = document.createElement("canvas");
-                  const ctx = canvas.getContext("2d");
-                  canvas.height = viewport.height;
-                  canvas.width = viewport.width;
-
-                  await page.render({ canvasContext: ctx, viewport }).promise;
-                  container.appendChild(canvas);
-                }
-              };
-              renderPDF();
-            </script>
-          <?php endif; ?>
-        </div>
-
-        <div class="col-md-4 border-start p-3">
-          <h5 class="mb-3">📥 Download</h5>
-          <?php if ($is_enrolled): ?>
-            <a href="<?= $file_url ?>" class="btn btn-success w-100 mb-2" download="<?= $download_name ?>">Download</a>
-          <?php else: ?>
-            <button class="btn btn-outline-secondary w-100 mb-2" disabled>🔒 Enroll to Download</button>
-          <?php endif; ?>
-
-          <hr>
-          <?php if ($is_enrolled): ?>
-            <h6>📊 Progress</h6>
-            <form method="POST" class="d-grid gap-2">
-              <div class="progress mb-2" style="height: 20px;">
-                <div class="progress-bar bg-<?= $current_percent == 100 ? 'success' : 'info' ?>" style="width: <?= $current_percent ?>%;">
-                  <?= $current_percent ?>%
-                </div>
-              </div>
-              <select name="progress_percent" class="form-select form-select-sm">
-                <?php foreach ([0, 20, 40, 60, 80, 100] as $p): ?>
-                  <option value="<?= $p ?>" <?= $p == $current_percent ? 'selected' : '' ?>><?= $p ?>%</option>
-                <?php endforeach; ?>
-              </select>
-              <button type="submit" name="update_progress" class="btn btn-outline-primary btn-sm">Update</button>
-              <?php if ($current_percent > 0): ?>
-                <button type="submit" name="reset_progress" class="btn btn-outline-danger btn-sm">Reset</button>
-              <?php endif; ?>
-            </form>
-          <?php endif; ?>
-        </div>
+    <?php if (!$is_enrolled): ?>
+      <div class="alert alert-warning text-center">
+        <p>🔒 You are not enrolled in this course yet.</p>
+        <form method="POST">
+          <button type="submit" name="enroll" class="btn btn-success">📥 Enroll Now</button>
+        </form>
       </div>
-    </div>
-  <?php endif; ?>
-
-  <hr>
-  <h4>💬 Course Discussion</h4>
-
-  <?php if ($is_enrolled): ?>
-    <form method="POST" class="mb-4">
-      <textarea name="comment" class="form-control" rows="4" required placeholder="Write your comment..."></textarea>
-      <button type="submit" class="btn btn-primary mt-2">Post Comment</button>
-    </form>
-  <?php else: ?>
-    <div class="alert alert-info">💬 Login and enroll to join the discussion.</div>
-  <?php endif; ?>
-
-  <?php if ($comments_result->num_rows > 0): ?>
-    <?php while ($comment = $comments_result->fetch_assoc()): ?>
-      <div class="border rounded p-3 mb-3 bg-white">
-        <strong><?= htmlspecialchars($comment['name']) ?></strong>
-        <small class="text-muted float-end"><?= $comment['created_at'] ?></small>
-        <p><?= nl2br(htmlspecialchars($comment['content'])) ?></p>
-      </div>
-    <?php endwhile; ?>
-
-    <?php if ($total_pages > 1): ?>
-      <nav><ul class="pagination">
-        <?php if ($page > 1): ?>
-          <li class="page-item"><a class="page-link" href="?id=<?= $course_id ?>&page=<?= $page - 1 ?>">« Prev</a></li>
-        <?php endif; ?>
-        <li class="page-item disabled"><span class="page-link">Page <?= $page ?> of <?= $total_pages ?></span></li>
-        <?php if ($page < $total_pages): ?>
-          <li class="page-item"><a class="page-link" href="?id=<?= $course_id ?>&page=<?= $page + 1 ?>">Next »</a></li>
-        <?php endif; ?>
-      </ul></nav>
     <?php endif; ?>
-  <?php else: ?>
-    <p class="text-muted">No comments yet.</p>
-  <?php endif; ?>
 
+    <?php if (!empty($course['file_path'])):
+      $file_url = "../" . $course['file_path'];
+      $file_ext = strtolower(pathinfo($file_url, PATHINFO_EXTENSION));
+      $download_name = "CourseMaterial_" . $course_id . "." . $file_ext;
+    ?>
+      <h4 class="mt-4">📁 Course Material</h4>
+      <div class="card mb-4 shadow-sm">
+        <div class="row g-0">
+          <div class="col-md-8 p-3">
+            <?php if ($file_ext === 'mp4'): ?>
+              <video class="w-100" height="320" controls>
+                <source src="<?= $file_url ?>" type="video/mp4">
+              </video>
+            <?php elseif ($file_ext === 'pdf'): ?>
+              <div id="pdf-viewer" style="border: 1px solid #ccc; height: 500px; overflow: auto;"></div>
+              <script>
+                const container = document.getElementById('pdf-viewer');
+                const url = '<?= $file_url ?>';
+                pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+                const renderPDF = async () => {
+                  const pdf = await pdfjsLib.getDocument(url).promise;
+                  for (let i = 1; i <= pdf.numPages; i++) {
+                    const page = await pdf.getPage(i);
+                    const viewport = page.getViewport({ scale: 1.2 });
+
+                    const canvas = document.createElement("canvas");
+                    const ctx = canvas.getContext("2d");
+                    canvas.height = viewport.height;
+                    canvas.width = viewport.width;
+
+                    await page.render({ canvasContext: ctx, viewport }).promise;
+                    container.appendChild(canvas);
+                  }
+                };
+                renderPDF();
+              </script>
+            <?php endif; ?>
+          </div>
+
+          <div class="col-md-4 border-start p-3">
+            <h5 class="mb-3">📥 Download</h5>
+            <?php if ($is_enrolled): ?>
+              <a href="<?= $file_url ?>" class="btn btn-success w-100 mb-2" download="<?= $download_name ?>">Download</a>
+            <?php else: ?>
+              <button class="btn btn-outline-secondary w-100 mb-2" disabled>🔒 Enroll to Download</button>
+            <?php endif; ?>
+
+            <hr>
+            <?php if ($is_enrolled): ?>
+              <h6>📊 Progress</h6>
+              <form method="POST" class="d-grid gap-2">
+                <div class="progress mb-2" style="height: 20px;">
+                  <div class="progress-bar bg-<?= $current_percent == 100 ? 'success' : 'info' ?>" style="width: <?= $current_percent ?>%;">
+                    <?= $current_percent ?>%
+                  </div>
+                </div>
+                <select name="progress_percent" class="form-select form-select-sm">
+                  <?php foreach ([0, 20, 40, 60, 80, 100] as $p): ?>
+                    <option value="<?= $p ?>" <?= $p == $current_percent ? 'selected' : '' ?>><?= $p ?>%</option>
+                  <?php endforeach; ?>
+                </select>
+                <button type="submit" name="update_progress" class="btn btn-outline-primary btn-sm">Update</button>
+                <?php if ($current_percent > 0): ?>
+                  <button type="submit" name="reset_progress" class="btn btn-outline-danger btn-sm">Reset</button>
+                <?php endif; ?>
+              </form>
+            <?php endif; ?>
+          </div>
+        </div>
+      </div>
+    <?php endif; ?>
+
+    <hr>
+    <h4>💬 Course Discussion</h4>
+
+    <?php if ($is_enrolled): ?>
+      <form method="POST" class="mb-4">
+        <textarea name="comment" class="form-control" rows="4" required placeholder="Write your comment..."></textarea>
+        <button type="submit" class="btn btn-primary mt-2">Post Comment</button>
+      </form>
+    <?php else: ?>
+      <div class="alert alert-info">💬 Login and enroll to join the discussion.</div>
+    <?php endif; ?>
+
+    <?php if ($comments_result->num_rows > 0): ?>
+      <?php while ($comment = $comments_result->fetch_assoc()): ?>
+        <div class="border rounded p-3 mb-3 bg-light">
+          <strong><?= htmlspecialchars($comment['name']) ?></strong>
+          <small class="text-muted float-end"><?= $comment['created_at'] ?></small>
+          <p><?= nl2br(htmlspecialchars($comment['content'])) ?></p>
+        </div>
+      <?php endwhile; ?>
+
+      <?php if ($total_pages > 1): ?>
+        <nav><ul class="pagination">
+          <?php if ($page > 1): ?>
+            <li class="page-item"><a class="page-link" href="?id=<?= $course_id ?>&page=<?= $page - 1 ?>">« Prev</a></li>
+          <?php endif; ?>
+          <li class="page-item disabled"><span class="page-link">Page <?= $page ?> of <?= $total_pages ?></span></li>
+          <?php if ($page < $total_pages): ?>
+            <li class="page-item"><a class="page-link" href="?id=<?= $course_id ?>&page=<?= $page + 1 ?>">Next »</a></li>
+          <?php endif; ?>
+        </ul></nav>
+      <?php endif; ?>
+    <?php else: ?>
+      <p class="text-muted">No comments yet.</p>
+    <?php endif; ?>
+
+  </div>
 </div>
 </body>
 </html>
