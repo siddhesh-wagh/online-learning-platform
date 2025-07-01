@@ -78,35 +78,40 @@ if (isset($_SESSION['role'])) {
     </div>
 </section>
 
-<!-- 🌟 Popular Courses -->
+<!-- 📚 Course Categories -->
 <section class="bg-white py-5">
     <div class="container text-center">
-        <h2>Popular Courses</h2>
+        <h2>Explore Learning Categories</h2>
         <div class="row mt-4">
-            <div class="col-md-4">
-                <div class="card shadow-sm">
+            <div class="col-md-3">
+                <div class="card shadow-sm h-100">
                     <div class="card-body">
-                        <h5 class="card-title">Web Development</h5>
-                        <p class="card-text">Build websites with HTML, CSS, and JavaScript.</p>
-                        <a href="views/course-details.php?id=1" class="btn btn-outline-primary">View Course</a>
+                        <h5 class="card-title">💻 Coding & Development</h5>
+                        <p class="card-text">Learn web, mobile, and software development skills.</p>
                     </div>
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="card shadow-sm">
+            <div class="col-md-3">
+                <div class="card shadow-sm h-100">
                     <div class="card-body">
-                        <h5 class="card-title">Data Science</h5>
-                        <p class="card-text">Analyze data with Python, R, and SQL.</p>
-                        <a href="views/course-details.php?id=2" class="btn btn-outline-primary">View Course</a>
+                        <h5 class="card-title">📊 Business & Management</h5>
+                        <p class="card-text">Courses on marketing, finance, entrepreneurship, and more.</p>
                     </div>
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="card shadow-sm">
+            <div class="col-md-3">
+                <div class="card shadow-sm h-100">
                     <div class="card-body">
-                        <h5 class="card-title">Digital Marketing</h5>
-                        <p class="card-text">Master SEO, SEM, and social media strategies.</p>
-                        <a href="views/course-details.php?id=3" class="btn btn-outline-primary">View Course</a>
+                        <h5 class="card-title">🎨 Design & Creativity</h5>
+                        <p class="card-text">Graphic design, UI/UX, animation, and more creative skills.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">🔬 Science & Data</h5>
+                        <p class="card-text">Data science, machine learning, and scientific research basics.</p>
                     </div>
                 </div>
             </div>
@@ -114,44 +119,28 @@ if (isset($_SESSION['role'])) {
     </div>
 </section>
 
-<!-- ❤️ Testimonials -->
+<!-- 📈 Platform Highlights -->
 <section class="bg-light py-5">
     <div class="container text-center">
-        <h2>What Our Students Say</h2>
+        <h2>Why Choose EduPlatform?</h2>
         <div class="row mt-4">
-            <div class="col-md-6">
-                <blockquote class="blockquote">
-                    <p>"EduPlatform helped me land my dream job. Highly recommended!"</p>
-                    <footer class="blockquote-footer">Sarah M.</footer>
-                </blockquote>
+            <div class="col-md-4">
+                <h3>5000+</h3>
+                <p>Students enrolled globally</p>
             </div>
-            <div class="col-md-6">
-                <blockquote class="blockquote">
-                    <p>"The instructors are top-notch, and the content is very well structured."</p>
-                    <footer class="blockquote-footer">David L.</footer>
-                </blockquote>
+            <div class="col-md-4">
+                <h3>150+</h3>
+                <p>Courses across various domains</p>
+            </div>
+            <div class="col-md-4">
+                <h3>24/7</h3>
+                <p>Access and support available anytime</p>
             </div>
         </div>
     </div>
 </section>
 
-<!-- 📬 Newsletter Signup -->
-<section class="bg-primary text-white py-5">
-    <div class="container text-center">
-        <h3>Stay Updated</h3>
-        <p>Subscribe to our newsletter for the latest updates and course launches.</p>
-        <form class="row justify-content-center">
-            <div class="col-md-4">
-                <input type="email" class="form-control" placeholder="Enter your email">
-            </div>
-            <div class="col-md-2">
-                <button class="btn btn-light w-100">Subscribe</button>
-            </div>
-        </form>
-    </div>
-</section>
-
-<!-- 🔗 Footer (Sticky at bottom) -->
+<!-- 🔗 Footer -->
 <footer class="bg-dark text-white text-center py-3 mt-auto">
     &copy; <?= date('Y') ?> EduPlatform. All rights reserved.
 </footer>
