@@ -22,6 +22,8 @@ function sendEmail($to, $subject, $body, $conn = null, $user_id = null) {
 
         $mail->setFrom($_ENV['MAIL_USERNAME'], 'Online Learning Platform');
         $mail->addAddress($to);
+        $mail->CharSet = 'UTF-8';
+        $mail->Encoding = 'base64';
         $mail->isHTML(true);
         $mail->Subject = $subject;
         $mail->Body    = $body;

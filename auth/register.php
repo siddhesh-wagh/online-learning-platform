@@ -27,23 +27,60 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $user_id = $stmt->insert_id;
 
             $verify_link = "http://localhost/online-learning-platform/auth/verify.php?token=$token";
-            $subject = "🔐 Verify Your Email - Online Learning Platform";
-            $body = "
-                <h2>Hi {$name},</h2>
-                <p>Thanks for signing up as a <strong>{$role}</strong>.</p>
-                <p>Please verify your email to activate your account:</p>
-                <a href='{$verify_link}'>Click here to verify</a>
-                <br><br>
-                <small>This link is valid once. If you did not sign up, ignore this email.</small>
-            ";
+            $subject = "Verify Your Email - Online Learning Platform";
+
+            $body = '
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+              <meta charset="UTF-8">
+              <title>Email Verification</title>
+            </head>
+            <body style="font-family: Arial, sans-serif; background-color: #f9f9f9; padding: 20px; color: #333;">
+              <table width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); overflow: hidden;">
+                <tr>
+                  <td style="background-color: #0d6efd; color: white; padding: 20px 30px; text-align: center; font-size: 24px;">
+                    Online Learning Platform
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 30px;">
+                    <h2 style="margin-top: 0;">Welcome, ' . htmlspecialchars($name) . ' 👋</h2>
+                    <p style="font-size: 16px;">Thank you for registering as a <strong>' . htmlspecialchars(ucfirst($role)) . '</strong> on our platform. To activate your account and access your dashboard, please verify your email by clicking the button below.</p>
+
+                    <p style="text-align: center; margin: 30px 0;">
+                      <a href="' . $verify_link . '" style="background-color: #0d6efd; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-size: 16px;">
+                        ✅ Verify My Email
+                      </a>
+                    </p>
+
+                    <p style="font-size: 14px;">If the button above doesn’t work, you can copy and paste the link below into your browser:</p>
+                    <p style="word-break: break-all;"><a href="' . $verify_link . '">' . $verify_link . '</a></p>
+
+                    <p style="font-size: 14px;">If you did not sign up for this account, please ignore this email.</p>
+
+                    <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+
+                    <p style="font-size: 12px; color: #888;">This verification link is valid once and may expire for security reasons.</p>
+                    <p style="font-size: 12px; color: #888;">Need help? Contact us at <a href="mailto:sid.website11@gmail.com">sid.website11@gmail.com</a></p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="background-color: #f1f1f1; text-align: center; padding: 15px; font-size: 13px; color: #999;">
+                    &copy; ' . date("Y") . ' Online Learning Platform. All rights reserved.
+                  </td>
+                </tr>
+              </table>
+            </body>
+            </html>';
 
             $emailSent = sendEmail($email, $subject, $body, $conn, $user_id);
             logNewRegistration($conn, $user_id);
 
             if ($emailSent) {
-                $message = ["type" => "success", "text" => "✅ Registered successfully! Check your email to verify your account."];
+                $message = ["type" => "success", "text" => "✅ Registered successfully! Please check your inbox to verify your email."];
             } else {
-                $message = ["type" => "warning", "text" => "⚠️ Registered, but email sending failed. Contact support."];
+                $message = ["type" => "warning", "text" => "⚠️ Registered, but email failed to send. Please contact support."];
             }
         } else {
             $message = ["type" => "danger", "text" => "❌ Registration failed: " . $stmt->error];
@@ -51,6 +88,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 }
 ?>
+
 
 <!DOCTYPE html>
 <html lang="en">
