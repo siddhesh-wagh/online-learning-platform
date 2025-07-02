@@ -65,7 +65,11 @@ $stmt = $conn->query("
   <?php if ($stmt->num_rows > 0): ?>
     <div class="row g-4">
       <?php while ($inst = $stmt->fetch_assoc()):
-        $profile_pic = $inst['profile_pic'] ?: '../assets/default-avatar.png';
+        // Fallback and correct path for profile picture
+        $pic_path = $inst['profile_pic'] && file_exists("../" . $inst['profile_pic'])
+            ? "../" . $inst['profile_pic']
+            : "../assets/default-avatar.png";
+
         $bio = trim(strip_tags($inst['bio'] ?? ''));
         $bio_snippet = $bio ? (strlen($bio) > 80 ? substr($bio, 0, 80) . '...' : $bio) : 'No bio available.';
       ?>
@@ -74,14 +78,14 @@ $stmt = $conn->query("
             <div class="card-body text-center d-flex flex-column align-items-center">
               <!-- Centered Profile Picture -->
               <div class="mb-3">
-                <img src="<?= htmlspecialchars($profile_pic) ?>" class="avatar" alt="Avatar of <?= htmlspecialchars($inst['name']) ?>">
+                <img src="<?= htmlspecialchars($pic_path) ?>" class="avatar" alt="Avatar of <?= htmlspecialchars($inst['name']) ?>">
               </div>
               <h5 class="card-title"><?= htmlspecialchars($inst['name']) ?></h5>
               <div class="card-subtitle mb-2"><?= htmlspecialchars($inst['email']) ?></div>
               <p class="bio-snippet mb-2"><?= htmlspecialchars($bio_snippet) ?></p>
               <span class="badge badge-course mb-3">📚 <?= $inst['course_count'] ?> course<?= $inst['course_count'] == 1 ? '' : 's' ?></span>
               <div class="d-grid gap-2 w-100 mt-auto">
-                <a href="instructor-profile.php?id=<?= $inst['id'] ?>" class="btn btn-sm btn-outline-primary">👤 View Profile</a>
+                <a href="mailto:<?= htmlspecialchars($inst['email']) ?>" class="btn btn-sm btn-outline-secondary">📧 Contact</a>
                 <a href="../views/course-list.php?instructor=<?= $inst['id'] ?>" class="btn btn-sm btn-primary">🎓 View Courses</a>
               </div>
             </div>
