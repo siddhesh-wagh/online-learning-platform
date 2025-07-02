@@ -58,7 +58,6 @@ if (isset($_SESSION['role'])) {
   </div>
 </nav>
 
-
 <!-- 🖥 Hero Section (Enhanced) -->
 <header class="bg-light py-5" style="background: linear-gradient(135deg, #e0f0ff, #ffffff); box-shadow: inset 0 -1px 0 #ddd;">
     <div class="container text-center py-5">
@@ -127,6 +126,15 @@ if (isset($_SESSION['role'])) {
                 </div>
             </div>
         </div>
+    </div>
+</section>
+
+<!-- 👨‍🏫 Instructors Section -->
+<section class="bg-light py-5">
+    <div class="container text-center">
+        <h2>Meet Our Instructors</h2>
+        <p class="text-muted">Learn from top professionals and educators from around the globe.</p>
+        <a href="http://localhost/online-learning-platform/views/instructors.php" class="btn btn-outline-primary mt-3">View All Instructors</a>
     </div>
 </section>
 

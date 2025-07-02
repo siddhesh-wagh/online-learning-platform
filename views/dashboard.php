@@ -93,6 +93,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_reply'])) {
     <nav class="mb-4">
         <a href="../auth/logout.php" class="btn btn-sm btn-danger">Logout</a>
         <a href="user-profile.php" class="btn btn-sm btn-secondary">👤 My Profile</a>
+        <?php if ($role === 'learner'): ?> 
+            <a href="../views/instructors.php" class="btn btn-sm ms-1" style="color: white; background-color: #6f42c1;">👨‍🏫 Instructors</a>
+        <?php endif; ?>  
         <?php if ($role === 'admin'): ?>
             <a href="../admin/manage-users.php" class="btn btn-sm btn-dark">🔐 Manage Users</a>
         <?php endif; ?>
