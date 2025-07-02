@@ -1,9 +1,7 @@
 
----
 
 ### ✅ `README.md` for `online-learning-platform`
 
-````markdown
 # 🎓 Online Learning Platform
 
 A complete web-based platform built with PHP and MySQL for managing online learning. The system includes user registration with email verification, role-based access, and a responsive email template using HTML/CSS.
@@ -31,27 +29,7 @@ A complete web-based platform built with PHP and MySQL for managing online learn
 - **Database:** MySQL (`online_learning`)
 - **Frontend:** HTML5, CSS3 (email templates)
 - **Mailing:** PHPMailer
-
----
-
-## 🗂️ Project Structure
-
-```bash
-online-learning-platform/
-│
-├── auth/
-│   └── verify.php               # Email verification script
-│
-├── includes/
-│   ├── mailer.php              # Mail sending logic using PHPMailer
-│   ├── functions.php           # Utility functions like logging
-│
-├── db-config.php               # Database connection file
-├── register.php                # Handles user signup and sends email
-├── .gitignore
-└── README.md
-````
-
+- 
 ---
 
 ## 🧑‍💻 Installation Guide
@@ -107,8 +85,6 @@ A modern HTML-based email with:
 * Fallback URL
 * Professional tone
 
-![Email Screenshot](https://user-images.githubusercontent.com/your-placeholder/email-preview.png)
-
 ---
 
 ## 🤝 Contributing
@@ -126,16 +102,8 @@ Pull requests are welcome. For major changes, please open an issue first to disc
 ## 📬 Contact
 
 Created by **[@siddhesh-wagh](https://github.com/siddhesh-wagh)**
-For queries, email: `youremail@example.com`
+For queries, email: `sid.website11@gmail.com`
 
 ```
 
----
 
-### ✅ What You Should Do:
-- Replace `youremail@example.com` with your real contact email.
-- Replace the screenshot link in the email section if you want to show your email design visually.
-- Ensure your `LICENSE` file exists (MIT recommended).
-
-Let me know if you want a `SQL` schema file or auto email tests in the README too!
-```
