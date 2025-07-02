@@ -103,7 +103,3 @@ Pull requests are welcome. For major changes, please open an issue first to disc
 
 Created by **[@siddhesh-wagh](https://github.com/siddhesh-wagh)**
 For queries, email: `sid.website11@gmail.com`
-
-```
-
-
