@@ -1,7 +1,3 @@
-
-
-### ✅ `README.md` for `online-learning-platform`
-
 # 🎓 Online Learning Platform
 
 A complete web-based platform built with PHP and MySQL for managing online learning. The system includes user registration with email verification, role-based access, and a responsive email template using HTML/CSS.
@@ -31,6 +27,12 @@ A complete web-based platform built with PHP and MySQL for managing online learn
 - **Mailing:** PHPMailer
 - 
 ---
+
+## 📸 Screenshots
+
+Here are some preview screenshots of Online learning Platform:
+
+![Home1](images/img1.png)
 
 ## 🧑‍💻 Installation Guide
 
