@@ -57,7 +57,6 @@ Here are some preview screenshots of Online learning Platform:
 ![Home23](images/img23.png)  
 ![Home24](images/img24.png)  
 ![Home25](images/img25.png)  
-![Home26](images/img26.png)
 
 ## 🧑‍💻 Installation Guide
 
