@@ -32,7 +32,32 @@ A complete web-based platform built with PHP and MySQL for managing online learn
 
 Here are some preview screenshots of Online learning Platform:
 
-![Home1](images/img1.png)
+![Home1](images/img1.png)  
+![Home2](images/img2.png)  
+![Home3](images/img3.png)  
+![Home4](images/img4.png)  
+![Home5](images/img5.png)  
+![Home6](images/img6.png)  
+![Home7](images/img7.png)  
+![Home8](images/img8.png)  
+![Home9](images/img9.png)  
+![Home10](images/img10.png)  
+![Home11](images/img11.png)  
+![Home12](images/img12.png)  
+![Home13](images/img13.png)  
+![Home14](images/img14.png)  
+![Home15](images/img15.png)  
+![Home16](images/img16.png)  
+![Home17](images/img17.png)  
+![Home18](images/img18.png)  
+![Home19](images/img19.png)  
+![Home20](images/img20.png)  
+![Home21](images/img21.png)  
+![Home22](images/img22.png)  
+![Home23](images/img23.png)  
+![Home24](images/img24.png)  
+![Home25](images/img25.png)  
+![Home26](images/img26.png)
 
 ## 🧑‍💻 Installation Guide
 
