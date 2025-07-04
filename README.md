@@ -129,3 +129,14 @@ Pull requests are welcome. For major changes, please open an issue first to disc
 
 Created by **[@siddhesh-wagh](https://github.com/siddhesh-wagh)**
 For queries, email: `sid.website11@gmail.com`
+
+
+## 👥 Contributors
+
+<td align="center">
+  <a href="https://github.com/Aditya120205">
+    <img src="https://github.com/Aditya120205.png" width="100px;" style="border-radius:50%" alt="Aditya120205"/>
+    <br />
+    <sub><b>Aditya120205</b></sub>
+  </a>
+</td> 
