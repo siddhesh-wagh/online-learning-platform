@@ -113,9 +113,26 @@ A modern HTML-based email with:
 
 ---
 
-## 🤝 Contributing
+## 👥 Contributors
 
-Pull requests are welcome. For major changes, please open an issue first to discuss what you'd like to change.
+<table align="center">
+  <tr>
+     <td align="center">
+      <a href="https://github.com/siddhesh-wagh">
+        <img src="https://github.com/siddhesh-wagh.png" width="100px;" style="border-radius:50%" alt="Siddhesh Wagh"/>
+        <br />
+        <sub><b>Siddhesh Wagh</b></sub>
+      </a>
+    </td>
+    <td align="center">
+      <a href="https://github.com/user1">
+        <img src="https://github.com/user1.png" width="100px;" style="border-radius:50%" alt="user1"/>
+        <br />
+        <sub><b>user1</b></sub>
+      </a>
+    </td>
+  </tr>
+</table>
 
 ---
 
