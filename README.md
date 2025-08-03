@@ -124,13 +124,6 @@ A modern HTML-based email with:
         <sub><b>Siddhesh Wagh</b></sub>
       </a>
     </td>
-    <td align="center">
-      <a href="https://github.com/user1">
-        <img src="https://github.com/user1.png" width="100px;" style="border-radius:50%" alt="user1"/>
-        <br />
-        <sub><b>user1</b></sub>
-      </a>
-    </td>
   </tr>
 </table>
 
@@ -146,3 +139,4 @@ A modern HTML-based email with:
 
 Created by **[@siddhesh-wagh](https://github.com/siddhesh-wagh)**
 For queries, email: `sid.website11@gmail.com`
+
